@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/login.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+    <title>Iniciar Sesión - Quiniela</title>
+</head>
+
+<body>
+    <div class="login-card">
+
+        <div class="logo-section">
+            <img src="./img/logo-fifa.png" alt="logo-fifa" class="logo">
+            <h1>QUINIELA <span>MUNDIAL 2026</span></h1>
+        </div>
+
+        <div class="separator titulo-lineas">
+            <span>INICIAR SESIÓN</span>
+        </div>
+        <form>
+
+            <div class="inputbox-login">
+                <i class="fa-solid fa-envelope"></i>
+                <input id="correo" type="email" placeholder="Correo electrónico" required="required">
+            </div>
+            <div class="inputbox-pass">
+                <i class="fa-solid fa-lock"></i>
+                <input id="password" type="password" placeholder="Contraseña" required="required">
+            </div>
+            <div class="links">
+                <a href="forgot-password.html">¿Olvidaste tu contraseña?</a>
+            </div>
+            <div>
+                <p id="mensajeLogin" class="mensaje"></p>
+                <input class="btn-entrar" type="button" value="Entrar">
+            </div>
+            <div class="separator titulo-lineas">
+                <span>ó</span>
+            </div>
+            <div class="registro">
+                <span>¿No tienes cuenta?</span>
+                <a href="registro.html">Registrarse</a>
+            </div>
+        </form>
+        <!-- <audio >
+  <audio id="musica" loop>
+    <source src="FIFA_Theme.mp3" type="audio/mpeg">
+  </audio> -->
+    </div>
+    <!-- <footer class="pie">
+        <p>Quiniela Mundial 2026 © Todos los derechos reservados</p>
+    </footer> -->
+    <script src="./js/login.js"></script>
+    <!-- <script> document.getElementById("musica").play();</script> -->
+    
+</body>
+
+</html>

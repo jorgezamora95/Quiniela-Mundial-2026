@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/registro.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+    <title>Iniciar Sesión - Quiniela</title>
+</head>
+
+<body>
+    <div class="registro-card">
+        <div class="logo-section">
+            <img src="./img/logo-fifa.png" alt="logo-fifa" class="logo">
+            <h1>QUINIELA <span>MUNDIAL 2026</span></h1>
+        </div>
+
+        <div class="separator titulo-lineas">
+            <span>Crear cuenta</span>
+        </div>
+        <form>
+            <div class="inputbox-user">
+                <i class="fa-solid fa-user"></i>
+                <input id="usuario" type="text" placeholder="Usuario" required="required">
+            </div>
+            <div class="inputbox-correo">
+                <i class="fa-solid fa-envelope"></i>
+                <input id="correo" type="email" placeholder="Correo electrónico" required="required">
+            </div>
+            <div class="inputbox-pass">
+                <i class="fa-solid fa-lock"></i>
+                <input id="password" type="password" placeholder="Contraseña" required="required">
+            </div>
+            <!-- Campos de Seguridad (Agregar dentro de tu formulario de registro.html) -->
+            <div class="input-group" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.2rem;">
+                <label style="color: #b8c2d6; font-weight: bold; font-size: 0.9rem;">Pregunta de Seguridad (Para
+                    recuperar cuenta):</label>
+                <select id="regPregunta"
+                    style="width: 100%; padding: .8rem; background: #05101a; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; color: white; outline: none; cursor: pointer;">
+                    <option value="¿Cuál fue el nombre de tu primera mascota?">¿Cuál fue el nombre de tu primera
+                        mascota?</option>
+                    <option value="¿Cuál es el nombre de tu ciudad natal?">¿Cuál es el nombre de tu ciudad natal?
+                    </option>
+                    <option value="¿Cómo se llamaba tu escuela primaria?">¿Cómo se llamaba tu escuela primaria?</option>
+                    <option value="¿Cuál es tu equipo de fútbol favorito?">¿Cuál es tu equipo de fútbol favorito?
+                    </option>
+                </select>
+            </div>
+
+            <div class="input-group" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.2rem;">
+                <label style="color: #b8c2d6; font-weight: bold; font-size: 0.9rem;">Tu Respuesta Secreta:</label>
+                <input type="text" id="regRespuesta" placeholder="No olvides tu respuesta" autocomplete="off"
+                    style="width: 100%; padding: .8rem; background: #05101a; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; color: white; outline: none;">
+            </div>
+
+            <div>
+                <p id="mensajeRegistro" class="mensaje"></p>
+                <input class="btn-registro" type="button" value="Registrarse">
+            </div>
+            <div class="regresar">
+                <a href="login.html">Regresar</a>
+            </div>
+        </form>
+    </div>
+    <script src="./js/registro.js"></script>
+    <!-- <footer>
+        <h5>Quiniela Mundial 2026 © Todos los derechos reservados</h5>
+    </footer> -->
+</body>
+
+</html>

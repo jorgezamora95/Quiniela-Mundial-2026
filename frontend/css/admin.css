@@ -1,0 +1,325 @@
+body{
+    background-color: #05101a; 
+    font-family: sans-serif;
+    height: 100vh;
+    color: white;
+    margin: 0;
+    min-height: 100vh;
+    background: 
+        radial-gradient(circle at center, rgba(24, 190, 93, 0.25), transparent 80%),
+        linear-gradient(rgba(5,16,26,.85), rgba(5,16,26,.95)),
+        #05101a;
+}
+/* IMPORTANTE:
+   Este archivo asume que tu sidebar viene de sidebar.html
+   y que sus estilos principales están en tu CSS de index/sidebar.
+*/
+
+/* Estilo base para el botón Registrar del administrador */
+.btn-registrar-fila {
+    background: rgba(46, 204, 113, 0.12);
+    color: #2ecc71;
+    border: 1px solid rgba(46, 204, 113, 0.35);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    /* ⏱️ Transición suave para que el efecto hover no sea brusco */
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 🔥 EFECTO HOVER (Al pasar el mouse por encima) */
+.btn-registrar-fila:hover {
+    background: #2ecc71; /* Se llena de color verde sólido */
+    color: #05101a;      /* El texto pasa a color oscuro para contrastar */
+    transform: translateY(-2px) scale(1.03); /* Se eleva y crece un 3% */
+    /* Sombra de neón verde esmeralda idéntica a tu lógica de diseño */
+    box-shadow: 0 8px 20px rgba(46, 204, 113, 0.4); 
+}
+
+/* Efecto cuando el administrador le da clic (Feedback táctil) */
+.btn-registrar-fila:active {
+    transform: translateY(0) scale(0.98); /* Se hunde ligeramente */
+}
+
+
+.main-content{
+    margin-left: 17rem;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 1.5rem;
+}
+
+.page-header{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.page-header h2{
+    font-size: 3rem;
+    margin: 0;
+}
+
+.page-header p{
+    color: #b8c2d6;
+    margin: .4rem 0 0;
+}
+
+.timer-card{
+    background: rgba(11,28,40,.9);
+    border: 1px solid rgba(46,204,113,.5);
+    border-radius: 14px;
+    padding: 1rem 1.4rem;
+    min-width: 300px;
+}
+/* 🛡️ ESTILO PARA LAS FILAS YA REGISTRADAS POR EL ADMIN */
+.quiniela-row.partido-registrado-admin {
+    opacity: 0.75; /* Atenúa un poco la fila para indicar estatus "histórico" */
+}
+
+/* Congela la interacción de los inputs de goles ya cargados */
+.quiniela-row.partido-registrado-admin .prediction input {
+    cursor: not-allowed;
+    pointer-events: none; /* Bloquea clics y scroll de números */
+    background: rgba(255, 255, 255, 0.77);
+}
+
+/* 🔒 ESTILO DEL BOTÓN DE REGISTRAR CUANDO YA ESTÁ DESHABILITADO */
+.btn-registrar-fila:disabled {
+    background: rgba(46, 204, 113, 0.08) !important; /* Verde muy translúcido */
+    color: #2ecc71 !important; /* Mantiene el color verde para que sea legible */
+    border: 2px solid rgba(240, 252, 0, 0.2) !important;
+    cursor: not-allowed !important;
+    transform: none !important; /* Desactiva el salto hacia arriba del hover */
+    box-shadow: none !important; /* Apaga el efecto neón */
+    pointer-events: none; /* Impide clics accidentales */
+}
+
+
+.timer-info{
+    display: flex;
+    align-items: center;
+    gap: .8rem;
+}
+
+.timer-info i{
+    color: #2ecc71;
+}
+
+.timer-card span{
+    color: #b8c2d6;
+    font-size: .85rem;
+}
+
+.timer-card strong{
+    display: block;
+    margin-top: .3rem;
+}
+
+.timer-card h3{
+    color: #2ecc71;
+    font-size: 1.8rem;
+    margin: .6rem 0 .2rem;
+    text-align: right;
+    letter-spacing: 2px;
+}
+
+.timer-labels{
+    display: flex;
+    justify-content: flex-end;
+    gap: 1.5rem;
+    font-size: .7rem;
+}
+
+/* QUINIELA */
+
+.quiniela-card{
+    background: rgba(7,17,31,.88);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 16px;
+    overflow: hidden;
+    padding-bottom: 1.5rem;
+    box-shadow: 0 20px 70px rgba(0,0,0,.22);
+}
+
+.quiniela-row{
+    display: grid;
+    grid-template-columns: 1.8fr 1fr .7fr;
+    align-items: center;
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.table-head{
+    background: rgba(255,255,255,.05);
+    color: #b8c2d6;
+    font-weight: bold;
+}
+
+.match{
+    display: grid;
+    grid-template-columns: 35px 1fr 35px 1fr;
+    align-items: center;
+    gap: .7rem;
+    font-weight: bold;
+}
+
+.num{
+    width: 28px;
+    height: 28px;
+    background: #16883f;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 0 12px rgba(46,204,113,.25);
+}
+
+.match small{
+    color: #b8c2d6;
+    text-align: center;
+}
+
+.prediction{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .7rem;
+}
+
+.prediction input{
+    width: 64px;
+    height: 38px;
+    border: none;
+    border-radius: 8px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 1rem;
+    outline: none;
+}
+
+.prediction input:focus{
+    box-shadow: 0 0 0 2px rgba(46,204,113,.55);
+}
+
+/* Selector de grupos estilizado */
+.filtro-grupo select {
+    background: rgba(7, 17, 31, 0.88);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: .5rem 1rem;
+    border-radius: 8px;
+    outline: none;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.btn-enviar {
+    background: linear-gradient(135deg, #3498db, #2980b9); /* Azul para diferenciar */
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    gap: .7rem;
+    cursor: pointer;
+    transition: .25s ease;
+    width: 65%;
+    margin: 1.5rem auto .8rem;
+    padding: 1rem;
+    border: none;
+    border-radius: 10px;
+}
+.btn-enviar:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(52,152,219,.25); }
+.quiniela-card {
+    background: rgba(7,17,31,.88);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 16px;
+    box-shadow: 0 20px 70px rgba(0,0,0,.22);
+    padding-bottom: 1.5rem;
+    
+    /* 📐 LIMITACIÓN DE ALTURA Y SCROLLBAR */
+    max-height: 680px; /* Evita que la tarjeta crezca infinitamente hacia abajo */
+    overflow-y: auto;  /* Muestra la barra de desplazamiento solo cuando se desborda */
+}
+
+/* 🎨 OPCIONAL: Estilizar la barra de scroll para que combine con tu modo oscuro */
+.quiniela-card::-webkit-scrollbar {
+    width: 8px;
+}
+
+.quiniela-card::-webkit-scrollbar-track {
+    background: rgba(7, 17, 31, 0.5);
+    border-radius: 16px;
+}
+
+.quiniela-card::-webkit-scrollbar-thumb {
+    background: rgba(46, 204, 113, 0.3); /* Un tono verde esmeralda sutil */
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+
+.quiniela-card::-webkit-scrollbar-thumb:hover {
+    background: rgba(46, 204, 113, 0.6); /* Se ilumina al pasar el cursor */
+}
+
+
+.team-name {
+    font-size: 1.05rem;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    /* 🚩 'Twemoji Mozilla' obliga a Windows a usar banderas de colores reales */
+    font-family: "Twemoji Mozilla", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+/* RESPONSIVE */
+
+@media(max-width: 1100px){
+    .main-content{
+        grid-template-columns: 1fr;
+    }
+
+    .right-panel{
+        display: none;
+    }
+}
+
+@media(max-width: 760px){
+    .main-content{
+        margin-left: 0;
+        padding: 1rem;
+    }
+
+    .page-header{
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .timer-card{
+        width: 100%;
+        min-width: 0;
+    }
+
+    .quiniela-row{
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .match{
+        grid-template-columns: 35px 1fr 30px 1fr;
+    }
+
+    .prediction{
+        justify-content: flex-start;
+    }
+
+    .save-btn{
+        width: 90%;
+    }
+}

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabla General - Mundial 2026</title>
+
+    <link rel="stylesheet" href="./css/tabla-general.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+
+    <div id="sidebar-container"></div>
+
+    <main class="main-content">
+
+        <div class="main-content">
+            <!-- SECCIÓN IZQUIERDA PRINCIPAL -->
+            <div class="left-section">
+                <div class="page-header">
+                    <div>
+                        <h2>Tabla General</h2>
+                        <p>Consulta las posiciones de todos los participantes</p>
+                    </div>
+                    <!-- Contador total de tu imagen -->
+                    <div class="participantes-badge">
+                        <i class="bx bx-group"></i>
+                        <div>
+                            <small>Participantes</small>
+                            <strong id="totalParticipantes">0</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 🏆 BLOQUE DE PODIOS (1º, 2º y 3º lugar) -->
+                <div class="podium-container">
+                    <!-- 2º Lugar (A la izquierda en tu diseño) -->
+                    <div class="podium-card second-place" id="podio2">
+                        <div class="medal-icon">🥈</div>
+                        <div class="avatar-circle"><i class="bx bx-user"></i></div>
+                        <h3 class="podium-name">-</h3>
+                        <strong class="podium-pts">- pts</strong>
+                        <small>2° lugar</small>
+                    </div>
+
+                    <!-- 1º Lugar (Centro y más alto) -->
+                    <div class="podium-card first-place" id="podio1">
+                        <div class="medal-icon">🥇</div>
+                        <div class="avatar-circle"><i class="bx bx-user"></i></div>
+                        <h3 class="podium-name">-</h3>
+                        <strong class="podium-pts">- pts</strong>
+                        <small>1° lugar</small>
+                    </div>
+
+                    <!-- 3º Lugar (A la derecha) -->
+                    <div class="podium-card third-place" id="podio3">
+                        <div class="medal-icon">🥉</div>
+                        <div class="avatar-circle"><i class="bx bx-user"></i></div>
+                        <h3 class="podium-name">-</h3>
+                        <strong class="podium-pts">- pts</strong>
+                        <small>3° lugar</small>
+                    </div>
+                </div>
+
+                <!-- 📋 RANKING COMPLETO -->
+                <div class="ranking-panel-card">
+                    <div class="ranking-header">
+                        <h3>📊 Ranking completo</h3>
+                        <input type="text" id="buscarParticipante" placeholder="🔍 Buscar participante...">
+                    </div>
+
+                    <!-- Tabla de datos -->
+                    <div class="tabla-scroll">
+                        <div class="tabla-head-row">
+                            <div>#</div>
+                            <div>Participante</div>
+                            <div>Predicciones</div>
+                            <div>Aciertos</div>
+                            <div>Puntos</div>
+                        </div>
+                        <!-- Contenedor dinámico donde JS meterá las filas -->
+                        <div id="tablaGeneralRows"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN DERECHA (Tus números, Racha, Reglas) -->
+            <div class="right-panel">
+                <!-- Tarjeta: Tus Números -->
+                <div class="panel-card shadow-card">
+                    <h3>📊 Tus números</h3>
+                    <div class="stats-item"><span>Posición actual:</span> <strong id="miPosicion"
+                            class="text-green">-</strong></div>
+                    <div class="stats-item"><span>Puntos:</span> <strong id="misPuntos" class="text-green">-
+                            pts</strong></div>
+                    <div class="stats-item"><span>Aciertos:</span> <strong id="misAciertos">-</strong></div>
+                </div>
+
+                <!-- Tarjeta: Reglas de Puntos -->
+                <div class="panel-card shadow-card">
+                    <h3>ℹ Reglas de puntos</h3>
+                    <div class="regla-row"><span>Marcador exacto</span>  <strong class="text-green">5 pts</strong></div>
+                    <div class="regla-row"><span>Ganador correcto</span> <strong class="text-green">3 pts</strong></div>
+                    <div class="regla-row"><span>Empate correcto</span>  <strong class="text-green">3 pt</strong></div>
+                    <div class="regla-row"><span>Pronóstico incorrecto</span>  <strong class="text-green">0 pt</strong></div>
+                </div>
+            </div>
+        </div>
+
+
+    </main>
+    
+    <script src="js/tabla-general.js"></script>
+    <script src="./js/layout.js"></script>
+    <script src="./js/sesion.js"></script>
+    <script src="./js/app.js"></script>
+
+</body>
+
+</html>

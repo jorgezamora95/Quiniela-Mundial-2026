@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Quiniela - Mundial 2026</title>
+
+    <link rel="stylesheet" href="./css/mi-quiniela.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/6.6.6/css/flag-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+
+    <!-- Sidebar reutilizable -->
+    <div id="sidebar-container"></div>
+
+    <main class="main-content">
+
+        <section class="quiniela-section">
+
+            <div class="page-header">
+                <div>
+                    <h2>Mi Quiniela</h2>
+                    <p>Selecciona el resultado que crees para cada partido</p>
+                </div>
+
+                <div class="timer-card">
+                    <div class="timer-info">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <div>
+                            <span>Fecha límite para editar:</span>
+                            <strong>11 Jun 2026 - 10:59 hrs</strong>
+                        </div>
+                    </div>
+
+                    <h3></h3>
+
+                    <div class="timer-labels">
+                        <span>DÍAS</span>
+                        <span>HRS</span>
+                        <span>MIN</span>
+                        <span>SEG</span>
+                    </div>
+                </div>
+                <div class="filtro-grupo">
+                    <label for="selectGrupo">Filtrar por Grupo: </label>
+                    <select id="selectGrupo">
+                        <option value="TODOS">Todos los Grupos</option>
+                        <option value="A">Grupo A</option>
+                        <option value="B">Grupo B</option>
+                        <option value="C">Grupo C</option>
+                        <option value="D">Grupo D</option>
+                        <option value="E">Grupo E</option>
+                        <option value="F">Grupo F</option>
+                        <option value="G">Grupo G</option>
+                        <option value="H">Grupo H</option>
+                        <option value="I">Grupo I</option>
+                        <option value="J">Grupo J</option>
+                        <option value="K">Grupo K</option>
+                        <option value="L">Grupo L</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="quiniela-card">
+
+                <div class="quiniela-row table-head">
+                    <span>Partido</span>
+                    <span>Tu Pronóstico</span>
+                    <span>Fecha</span>
+                </div>
+                <div id="quinielaContainer"></div>
+            </div>
+            <button class="btn-guardar">
+                <i class="fa-solid fa-floppy-disk"></i>
+                Guardar Quiniela
+            </button>
+            <button class="btn-enviar">
+                <i class="fa-solid fa-lock"></i>
+                Enviar Quiniela Definitiva
+            </button>
+            <p class="warning">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                Una vez enviada, ya no podrás modificar tu quiniela
+            </p>
+            <div id="mensajeQuiniela"></div>
+        </section>
+
+        <aside class="right-panel">
+
+            <div class="panel-card profile-card">
+                <div class="profile-header">
+                        <img id="imgAvatarSidebar" src="./img/user-icon.png" alt="Avatar">
+                    <div>
+                        <h3 id="Nombre"></h3>
+                        <span>Participante</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+    </main>
+    
+    <script src="./js/app.js"></script>
+    <script src="./js/layout.js"></script>
+    <script src="./js/sesion.js"></script>
+
+
+</body>
+
+</html>

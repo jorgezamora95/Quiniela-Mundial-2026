@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+    <title>Panel de Control - Administrador</title>
+
+</head>
+
+<body>
+    <div id="sidebar-container">
+        
+    </div>
+    <div class="main-content"
+        style="grid-template-columns: 1fr; margin-left: 0; padding: 2rem; max-width: 1100px; margin: 0 auto;">
+
+        <div class="page-header">
+            <div>
+                <h2>⚙️ Panel de Administración</h2>
+                <p>Ingresa los resultados oficiales de la FIFA para calcular los puntos globales.</p>
+            </div>
+
+            <!-- Filtro rápido por grupos -->
+            <div class="filtro-grupo">
+                <label for="selectGrupoAdmin">Filtrar por Grupo: </label>
+                <select id="selectGrupoAdmin">
+                    <option value="TODOS">Todos los Grupos</option>
+                    <option value="A">Grupo A</option>
+                    <option value="B">Grupo B</option>
+                    <option value="C">Grupo C</option>
+                    <option value="D">Grupo D</option>
+                    <option value="E">Grupo E</option>
+                    <option value="F">Grupo F</option>
+                    <option value="G">Grupo G</option>
+                    <option value="H">Grupo H</option>
+                    <option value="I">Grupo I</option>
+                    <option value="J">Grupo J</option>
+                    <option value="K">Grupo K</option>
+                    <option value="L">Grupo L</option>
+                </select>
+            </div>
+        </div>
+        <div id="adminMensaje"
+            style="text-align: center; margin-bottom: 1rem; font-weight: bold; font-size: 1.1rem; height: 20px;">
+        </div>
+        
+        <!-- Tarjeta contenedora con Scroll para los partidos oficiales -->
+        <div class="quiniela-card">
+            <div id="adminPartidosContainer"></div>
+        </div>
+        <!-- Botón maestro para ejecutar el algoritmo SQL de puntos -->
+        <button id="btnAdminCalcular" class="btn-enviar"
+            style="width: 100%; max-width: 400px; margin: 0 auto 1.5rem; background: #9b59b6; display: block;">
+            🔄 Recalcular Puntos Globales de Usuarios
+        </button>
+    </div>
+    <script src="./js/sesion.js"></script>
+    <script src="./js/layout.js"></script>
+    <script src="./js/admin.js"></script>
+
+    <!-- <script src="./js/app.js"></script> -->
+</body>
+
+</html>

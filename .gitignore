@@ -1,0 +1,23 @@
+# Node
+node_modules/
+
+# Env
+.env
+.env.*
+_*
+# Logs
+logs/
+*.log
+
+# JSON temporales
+*.jsonl
+*.tmp
+temp/
+staging/
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

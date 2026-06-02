@@ -1,0 +1,226 @@
+.main-content{
+    margin-left: 19rem;
+    min-height: 100vh;
+    padding: 2rem;
+    }
+
+.opciones-layout{
+    display: grid;
+    grid-template-columns: 1fr 440px;
+    gap: 4rem;
+    justify-content: center;
+}
+
+.eyebrow{
+    display: inline-block;
+    color: #2ecc71;
+    background: rgba(46,204,113,.12);
+    border: 1px solid rgba(46,204,113,.25);
+    padding: .35rem .8rem;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    margin-bottom: 1rem;
+}
+
+.opciones-info h2{
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 4rem;
+    letter-spacing: 1px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.opciones-info h2 i{
+    color: #2ecc71;
+    text-shadow: 0 0 20px rgba(46,204,113,.35);
+}
+
+.opciones-info p{
+    color: #b8c2d6;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    max-width: 620px;
+    margin: .6rem 0 1.6rem;
+}
+
+.tips-card{
+    max-width: 560px;
+    background: rgba(7,17,31,.65);
+    border: 1px solid rgba(255,255,255,.08);
+    padding:1.5rem;
+    border-radius:20px;
+    margin-bottom: 2rem;
+}
+
+.tips-card h3{
+    margin: 0 0 .8rem;
+    color: white;
+}
+
+.tips-card ul{
+    margin: 0;
+    padding-left: 1.2rem;
+    color: #b8c2d6;
+    line-height: 1.7;
+}
+
+.tips-card li{
+    margin-bottom:.8rem;
+}
+
+.opciones-card{
+    background: rgba(7,17,31,.88);
+    border: 1px solid rgba(255,255,255,.10);
+    border-radius: 22px;
+    padding: 2rem;
+    box-shadow: 0 25px 80px rgba(0,0,0,.35);
+    backdrop-filter: blur(12px);
+
+    /* 📐 LAS ENMIENDAS DE ANCHO Y CENTRADO DE LA TARJETA */
+    max-width: 440px;      /* Establece un ancho máximo compacto idéntico al Login */
+    width: 100%;           /* Permite que responda de forma fluida */
+
+}
+
+.profile-preview-zone{
+    text-align: center;
+    margin-bottom: 1.8rem;
+}
+
+.avatar-ring{
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+    border-radius: 50%;
+    padding: 4px;
+    background: linear-gradient(135deg,#2ecc71,#0b1c28,#2ecc71);
+    box-shadow: 0 0 25px rgba(46,204,113,.25);
+
+}
+
+.avatar-ring img{
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-position: center;
+    background: #05101a;
+}
+
+.profile-preview-zone h3{
+    margin: 1rem 0 .45rem;
+    font-size: 1.35rem;
+}
+
+.profile-badge{
+    display: inline-block;
+    background: rgba(46,204,113,.18);
+    color: #2ecc71;
+    border-radius: 999px;
+    padding: .3rem .8rem;
+    font-size: .8rem;
+    font-weight: bold;
+}
+
+.form-opciones{
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.input-group label{
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    color: #dce6ef;
+    font-weight: bold;
+    font-size: .9rem;
+    margin-bottom: .5rem;
+}
+
+.input-group label i{
+    color: #2ecc71;
+}
+
+.input-group input{
+    width: 100%;
+    padding: .85rem .95rem;
+    background: #05101a;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 12px;
+    color: white;
+    outline: none;
+    font-size: .95rem;
+    transition: .25s ease;
+}
+
+.input-group input:focus{
+    border-color: #2ecc71;
+    box-shadow: 0 0 0 3px rgba(46,204,113,.15);
+}
+
+.btn-guardar-op{
+    width: 100%;
+    padding: .95rem;
+    margin-top: .4rem;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg,#2ecc71,#169b4f);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: .6rem;
+    transition: .25s ease;
+}
+
+.btn-guardar-op:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(46,204,113,.25);
+}
+
+#mensajeOpciones{
+    min-height: 24px;
+    margin-top: 1rem;
+    text-align: center;
+    font-weight: bold;
+    font-size: .9rem;
+}
+
+.mensaje.success{
+    color: #2ecc71;
+}
+
+.mensaje.error{
+    color: #ff6b6b;
+}
+
+@media(max-width: 1000px){
+    .opciones-layout{
+    display: grid;
+    grid-template-columns: 1fr 440px;
+        grid-template-columns: 1fr;
+        align-items: start;
+    }
+
+    .opciones-card{
+        max-width: 440px;
+    }
+}
+
+@media(max-width: 760px){
+    .main-content{
+        margin-left: 0;
+        padding: 1rem;
+    }
+
+    .opciones-info h2{
+        font-size: 3rem;
+    }
+}

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mis Resultados - Mundial 2026</title>
+
+    <link rel="stylesheet" href="./css/mis-resultados.css">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+
+    <div id="sidebar-container"></div>
+
+    <main class="main-content">
+        <div class="main-content">
+            <div class="left-section">
+                <div class="page-header">
+                    <div>
+                        <h2>Mis Resultados</h2>
+                        <p>Revisa tus aciertos, puntos y predicciones anteriores</p>
+                    </div>
+                    <div class="puntos-totales-badge">
+                        <i class="bx bx-trending-up"></i>
+                        <div>
+                            <small>Puntos totales</small>
+                            <strong id="cardPuntosTotales">- pts</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 📊 TARGETAS DE CONTADORES SUPERIORES -->
+                <div class="grid-stats-superiores">
+                    <div class="stat-box-card">
+                        <div class="icon-circle bg-green"><i class="bx bx-trophy"></i></div>
+                        <div><small>Posición</small>
+                            <h3 id="statPosicion">-</h3>
+                        </div>
+                    </div>
+                    <div class="stat-box-card">
+                        <div class="icon-circle bg-green"><i class="bx bx-check-circle"></i></div>
+                        <div><small>Aciertos</small>
+                            <h3 id="statAciertos">-</h3>
+                        </div>
+                    </div>
+                    <div class="stat-box-card">
+                        <div class="icon-circle bg-green"><i class="bx bx-football"></i></div>
+                        <div><small>Partidos jugados</small>
+                            <h3 id="statJugados">-</h3>
+                        </div>
+                    </div>
+                    <div class="stat-box-card">
+                        <div class="icon-circle bg-green"><i class="bx bx-bolt"></i></div>
+                        <div><small>Racha actual</small>
+                            <h3 id="statRacha">5</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 📋 LISTADO HISTORIAL DE PREDICCIONES -->
+                <div class="ranking-panel-card">
+                    <div class="ranking-header">
+                        <h3>📋 Historial de predicciones</h3>
+                        <select id="selectFiltroEstado" class="filtro-select-resultados">
+                            <option value="TODOS">Todos</option>
+                            <option value="Exacto">Exacto</option>
+                            <option value="Acierto">Acierto</option>
+                            <option value="Falló">Falló</option>
+                            <option value="Pendiente">Pendiente</option>
+                        </select>
+                    </div>
+
+                    <div class="tabla-scroll">
+                        <div class="resultados-head-row">
+                            <div>Partido</div>
+                            <div>Tu pronóstico</div>
+                            <div>Resultado</div>
+                            <div>Puntos</div>
+                            <div>Estado</div>
+                        </div>
+                        <!-- JS inyectará las filas aquí -->
+                        <div id="historialPartidosRows"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 🗂️ BARRA LATERAL DERECHA (Resumen y Efectividad) -->
+            <div class="right-panel">
+                <div class="panel-card shadow-card">
+                    <h3>📋 Resumen</h3>
+                    <div class="resumen-item"><span>Marcadores exactos</span> <strong id="resExactos"
+                            class="text-green">-</strong></div>
+                    <div class="resumen-item"><span>Ganadores correctos</span> <strong id="resCorrectos"
+                            class="text-green">-</strong></div>
+                    <div class="resumen-item"><span>Fallados</span> <strong id="resFallados" class="text-red">-</strong>
+                    </div>
+                </div>
+
+                <div class="panel-card shadow-card">
+                    <h3>% Efectividad</h3>
+                    <div class="efectividad-bloque">
+                        <div class="efectividad-header"><span>Aciertos</span> <strong id="txtEfectividad"
+                                class="text-green">-</strong></div>
+                        <!-- Barra de carga visual de efectividad -->
+                        <div class="progress-bar-bg">
+                            <div id="barEfectividad" class="progress-bar-fill"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+    
+    <script src="js/mis-resultados.js"></script>
+    <script src="./js/layout.js"></script>
+    <script src="./js/sesion.js"></script>
+    <script src="./js/app.js"></script>
+
+</body>
+
+</html>

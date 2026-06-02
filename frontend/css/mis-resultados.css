@@ -1,0 +1,97 @@
+body{
+    background-color: #05101a; 
+    font-family: sans-serif;
+    height: 100vh;
+    color: white;
+    margin: 0;
+    min-height: 100vh;
+    background: 
+        radial-gradient(circle at center, rgba(24, 190, 93, 0.25), transparent 80%),
+        linear-gradient(rgba(5,16,26,.85), rgba(5,16,26,.95)),
+        #05101a;
+}
+/* Cuadrícula para las filas del historial */
+.resultados-head-row, .resultados-row-item {
+    display: grid;
+    grid-template-columns: 2.2fr 1fr 1fr 1fr 1fr;
+    align-items: center;
+    padding: 1.1rem 1.2rem;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.resultados-head-row { background: rgba(255,255,255,0.02); font-weight: bold; color: #b8c2d6; }
+.match-resultados { display: flex; align-items: center; gap: 0.8rem; font-weight: bold; }
+.text-center { text-align: center; }
+
+/* 🏷️ BADGES DE ESTADO ESTILIZADOS (Match con tu imagen) */
+.badge-estado {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    text-align: center;
+    text-transform: capitalize;
+}
+.estado-exacto { background: rgba(46, 204, 113, 0.15); color: #2ecc71; border: 1px solid rgba(46,204,113,0.3); }
+.estado-acierto { background: rgba(52, 152, 219, 0.15); color: #3498db; border: 1px solid rgba(52,152,219,0.3); }
+.estado-falló { background: rgba(231, 76, 60, 0.15); color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+.estado-pendiente { background: rgba(241, 196, 15, 0.15); color: #f1c40f; border: 1px solid rgba(241,196,15,0.3); }
+
+/* 📊 ESTILOS DE LA BARRA DE EFECTIVIDAD */
+.efectividad-bloque { margin-top: 0.8rem; }
+.efectividad-header { display: flex; justify-content: space-between; margin-bottom: 0.4rem; font-weight: bold; }
+.progress-bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.08); border-radius: 10px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: #2ecc71; width: 0%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+
+/* Grid de los 4 cuadros superiores */
+.grid-stats-superiores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2rem; margin-bottom: 2rem; }
+.stat-box-card { background: rgba(7,17,31,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 1rem 1.2rem; display: flex; align-items: center; gap: 1rem; }
+.icon-circle { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-size: 1.3rem; }
+.bg-green { background: rgba(46, 204, 113, 0.15); color: #2ecc71; }
+.stat-box-card h3 { margin: 0.2rem 0 0; font-size: 1.6rem; }
+.stat-box-card small { color: #b8c2d6; }
+.filtro-select-resultados { background: rgba(7, 17, 31, 0.88); color: white; border: 1px solid rgba(255,255,255,0.1); padding: .4rem .8rem; border-radius: 6px; outline: none; cursor: pointer; }
+
+/* ✅ FIX: Responsive para Mis Resultados */
+.main-content{
+    margin-left: 19rem;
+    padding: 2rem;
+}
+
+@media(max-width: 1100px){
+    .main-content{
+        margin-left: 17rem;
+    }
+}
+
+@media(max-width: 760px){
+    .main-content{
+        margin-left: 0;
+        padding: 1rem;
+    }
+    .grid-stats-superiores{
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+    .resultados-head-row,
+    .resultados-row-item{
+        grid-template-columns: 1.5fr 1fr 1fr;
+        font-size: 0.85rem;
+        padding: 0.8rem;
+    }
+    /* Ocultar columnas menos importantes en móvil */
+    .resultados-head-row span:nth-child(3),
+    .resultados-row-item span:nth-child(3){
+        display: none;
+    }
+    .match-resultados{
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
+    }
+}
+
+@media(max-width: 480px){
+    .grid-stats-superiores{
+        grid-template-columns: 1fr;
+    }
+}

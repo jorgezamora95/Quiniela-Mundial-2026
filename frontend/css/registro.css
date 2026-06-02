@@ -1,0 +1,262 @@
+/* Estilos para el Body */
+body{
+    background-color: #05101a; 
+    font-family: sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: white;
+    margin: 0;
+    min-height: 100vh;
+    background: 
+        radial-gradient(circle at center, rgba(24, 190, 93, 0.25), transparent 80%),
+        linear-gradient(rgba(5,16,26,.85), rgba(5,16,26,.95)),
+        #05101a;
+}
+
+
+/* ESTILOS PARA LOS TITULOS H1 */
+h1{
+    font-family: "Bebas Neue", sans-serif;
+    font-weight: 400;
+    color: #fff;
+    margin: 0;
+    line-height: .9;
+}
+/* ESTILOS PARA LOS TITULOS H2 */
+h2 {
+  font-family: "Bebas Neue", sans-serif;
+  font-weight: 400;
+  font-size: 25px;
+  color: #fff;
+  margin-bottom: 5px;
+}
+/* ESTILOS PARA LOS TITULOS H1 SPAN */
+h1 span {
+    display: block;
+    color: #2ecc71;
+    margin-top: 2px;
+}
+
+/* ESTILOS PARA LOS TITULOS EL BOX DEL LOGIN */
+.registro-card {
+    background: linear-gradient(180deg, #0b1c28, #06111c);
+    padding: 28px 32px;
+    border-radius: 24px;
+    width: 320px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 25px 80px rgba(0,0,0,.55);
+}
+
+.login-title h2{
+  margin: 10px 0 12px;
+}
+/* ESTILOS LOGO */
+.logo-section{
+  margin-bottom: 15px;
+}
+
+.logo {
+    width: 70px;
+    margin-bottom: 5px;
+}
+
+/* ESTILOS LOGIN */
+.inputbox-user {
+    display: flex;
+    align-items: center;
+    background: #05101a;
+    border: 1px solid #1a3a4d;
+    border-radius: 8px;
+    padding: 0 12px;
+    gap: 10px;
+    margin: 10px 0 18px;
+}
+
+.inputbox-user i{
+    color: #2ecc71;
+}
+
+.inputbox-user input{
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: white;
+    font-size: 15px;
+    height: 40px;
+    font-style: italic;
+}
+
+
+/* ESTILOS LOGIN */
+.inputbox-correo {
+    display: flex;
+    align-items: center;
+    background: #05101a;
+    border: 1px solid #1a3a4d;
+    border-radius: 8px;
+    padding: 0 12px;
+    gap: 10px;
+    margin: 10px 0 18px;
+}
+
+.inputbox-correo i{
+    color: #2ecc71;
+}
+
+.inputbox-correo input{
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: white;
+    font-size: 15px;
+    height: 40px;
+    font-style: italic;
+}
+
+/* ESTILOS PASS */
+.inputbox-pass{
+    display: flex;
+    align-items: center;
+    background: #05101a;
+    border: 1px solid #1a3a4d;
+    border-radius: 8px;
+    padding: 0 12px;
+    gap: 10px;
+    margin: 10px 0 18px;
+}
+
+.inputbox-pass i {
+    color: #2ecc71;
+}
+
+.inputbox-pass input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: white;
+    font-size: 15px;
+    height: 40px;
+    font-style: italic;
+}
+
+.inputbox span{
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: #dce6ef;
+}
+
+.separator {
+    display: flex;
+    align-items: center;
+    font-family: "Poppins", sans-serif;
+    font-weight: 300;
+    font-style: normal;
+}
+
+
+.titulo-lineas {
+    display: flex;
+    align-items: center; /* Centra el texto y las líneas verticalmente */
+    text-align: center;
+    font-family: "Poppins", sans-serif;
+    font-weight: 300;
+    font-style: normal;
+}
+
+.titulo-lineas::before,
+.titulo-lineas::after {
+  content: "";
+  flex: 1; /* Hace que las líneas ocupen el espacio restante */
+  border-bottom: 2px solid #fff; /* Grosor y color de la línea */
+  margin: 0 15px; /* Espacio entre el texto y las líneas */
+}
+
+.links{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 8px 0 18px;
+}
+
+.checkbox{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkbox input {
+    width: auto;
+    height: auto;
+    margin: 0 8px 0 0;
+}
+
+.links a{
+    color: #2ecc71;
+    text-decoration: none;
+    font-style: italic;
+}
+
+.links a:hover {
+    text-decoration: underline;
+}
+
+.btn-registro {
+    width: 100%;
+    padding: 12px;
+    background-color: #27ae60;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    height: 44px;
+    font-size: 16px;
+    background: linear-gradient(135deg, #2ecc71, #169b4f);
+    box-shadow: 0 10px 25px rgba(46,204,113,.25);
+    margin-bottom: 15px;
+
+}
+
+.btn-registro:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(46,204,113,.35);
+}
+
+.btn-registro:hover{
+    background: rgba(46,204,113,.08);
+}
+
+.regresar a{
+    color: #2ecc71;
+    text-decoration: none;
+    font-family: "Poppins", sans-serif;
+    font-weight: 300;
+    font-style: italic;
+}
+
+.mensaje{
+    min-height: 22px;
+    font-size: .9rem;
+    margin: 10px 0;
+    text-align: center;
+}
+
+.mensaje.success{
+    color: #2ecc71;
+}
+
+.mensaje.error{
+    color: #ff6b6b;
+}
+
+button,
+input[type="button"]{
+    transition: .25s ease;
+}
