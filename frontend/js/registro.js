@@ -44,7 +44,7 @@ btnRegistro.addEventListener("click", async function () {
     try {
         btnRegistro.disabled = true;
 
-        const response = await fetch(`${API_BASE}/api/registro`, {
+        const response = await fetch(`${API_URL}/api/registro`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

@@ -1,21 +1,18 @@
 let partidosGlobal        = [];
 let temporizadorMensaje;
-let suscripcionUsuario    = null;  // { Paquete, GolesRestantes, MaxPartidos, GolesIniciales }
-let partidosDesbloqueados = [];    // [{ PartidoId, ModificacionesUsadas, GolesGastados }]
+let suscripcionUsuario    = null;
+let partidosDesbloqueados = [];
 
 document.addEventListener("DOMContentLoaded", () => {
     inicializarQuiniela();
     iniciarTemporizador();
     cargarPerfilUsuario();
-    // configurarBotonGuardar();
     inicializarPronosticoCampeon();
 });
 
-// ─── INICIALIZAR ─────────────────────────────────────────────────────────────
-
 async function inicializarQuiniela() {
-    const selectGrupo  = document.querySelector("#selectGrupo");
-    const idUsuario    = localStorage.getItem("idUsuario");
+    const selectGrupo    = document.querySelector("#selectGrupo");
+    const idUsuario      = localStorage.getItem("idUsuario");
     const nombreGuardado = localStorage.getItem("Nombre");
 
     if (!idUsuario) { window.location.href = "login.html"; return; }
@@ -38,7 +35,7 @@ async function inicializarQuiniela() {
         const datosDB         = await resQuiniela.json();
         const datosSub        = await resDatos.json();
 
-        suscripcionUsuario    = datosSub.ok ? datosSub.suscripcion         : null;
+        suscripcionUsuario    = datosSub.ok ? datosSub.suscripcion          : null;
         partidosDesbloqueados = datosSub.ok ? datosSub.partidosDesbloqueados : [];
 
         actualizarPanelGoles();
@@ -56,8 +53,6 @@ async function inicializarQuiniela() {
     }
 }
 
-// ─── PANEL DE GOLES (sidebar derecho) ────────────────────────────────────────
-
 function actualizarPanelGoles() {
     const panelGoles  = document.getElementById("panelGoles");
     const txtPaquete  = document.getElementById("txtPaquete");
@@ -71,7 +66,7 @@ function actualizarPanelGoles() {
         panelGoles.style.display = "block";
         if (txtPaquete)  txtPaquete.textContent  = "Sin suscripción";
         if (txtGoles)    txtGoles.textContent     = "0 goles";
-        if (txtPartidos) txtPartidos.textContent  = `0 / 0 partidos`;
+        if (txtPartidos) txtPartidos.textContent  = "0 / 0 partidos";
         return;
     }
 
@@ -86,8 +81,6 @@ function actualizarPanelGoles() {
     if (txtPartidos) txtPartidos.textContent  = `${desbloqueadosCount} / ${MaxPartidos} partidos`;
 }
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-
 function getDesbloqueo(partidoId) {
     return partidosDesbloqueados.find(d => d.PartidoId === partidoId) || null;
 }
@@ -101,7 +94,10 @@ function calcularCostoFrontend(msHastaPartido) {
     return 1;
 }
 
-// ─── RENDERIZAR PARTIDOS ─────────────────────────────────────────────────────
+// Calcula costo diferencial: lo que se cobra EXTRA al modificar
+function calcularCostoDiferencial(costoActual, golesGastados) {
+    return Math.max(0, costoActual - golesGastados);
+}
 
 function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
     const container = document.querySelector("#quinielaContainer");
@@ -109,102 +105,121 @@ function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
     container.textContent = "";
 
     partidosAMostrar.forEach((partido) => {
-        const horaLimpia    = partido.hora.replace(" hrs", "");
-        const fechaPartido  = new Date(`${partido.fecha} ${horaLimpia}:00`);
-        const ahora         = new Date();
-        const msHasta       = fechaPartido.getTime() - ahora.getTime();
-        const yaEmpezó      = msHasta <= 0;
-        const desbloqueo    = getDesbloqueo(partido.id);
-        const desbloqueado  = !!desbloqueo;
-        const modUsadas     = desbloqueo ? desbloqueo.ModificacionesUsadas : 0;
-        const modRestantes  = 3 - modUsadas;
-        const costo         = calcularCostoFrontend(msHasta);
+        const horaLimpia   = partido.hora.replace(" hrs", "");
+        const fechaPartido = new Date(`${partido.fecha} ${horaLimpia}:00`);
+        const ahora        = new Date();
+        const msHasta      = fechaPartido.getTime() - ahora.getTime();
+        const yaEmpezó     = msHasta <= 0;
+        const desbloqueo   = getDesbloqueo(partido.id);
+        const desbloqueado = !!desbloqueo;
+        const modUsadas    = desbloqueo ? desbloqueo.ModificacionesUsadas : 0;
+        const modRestantes = 3 - modUsadas;
+        const golesGastados = desbloqueo ? desbloqueo.GolesGastados : 0;
+        const costo        = calcularCostoFrontend(msHasta);
+        const costoExtra   = desbloqueado && costo ? calcularCostoDiferencial(costo, golesGastados) : 0;
 
-        const recordGuardado      = pronosticosGuardados.find(p => p.PartidoId === partido.id);
-        const golesLocalActual    = partido.golesLocal     !== undefined ? partido.golesLocal     : (recordGuardado ? recordGuardado.GolesLocal     : "0");
+        const recordGuardado       = pronosticosGuardados.find(p => p.PartidoId === partido.id);
+        const golesLocalActual     = partido.golesLocal     !== undefined ? partido.golesLocal     : (recordGuardado ? recordGuardado.GolesLocal     : "0");
         const golesVisitanteActual = partido.golesVisitante !== undefined ? partido.golesVisitante : (recordGuardado ? recordGuardado.GolesVisitante : "0");
 
         const row = document.createElement("div");
-        row.className = "quiniela-row";
+        row.className  = "quiniela-row";
         row.dataset.id = partido.id;
+        // Guardamos la fecha para enviársela al backend
+        row.dataset.fecha = fechaPartido.toISOString();
 
         // Equipos
-        const matchDiv = document.createElement("div");
-        matchDiv.className = "match";
-        const numSpan = document.createElement("span");
-        numSpan.className = "num";
-        numSpan.textContent = partido.id;
-        const localSpan = document.createElement("span");
-        localSpan.className = "team-name";
+        const matchDiv  = document.createElement("div"); matchDiv.className = "match";
+        const numSpan   = document.createElement("span"); numSpan.className = "num"; numSpan.textContent = partido.id;
+        const localSpan = document.createElement("span"); localSpan.className = "team-name";
         localSpan.textContent = `${obtenerEmojiBandera(partido.codLocal)} ${partido.local}`;
-        const vsSmall = document.createElement("small");
-        vsSmall.textContent = "vs";
-        const visitanteSpan = document.createElement("span");
-        visitanteSpan.className = "team-name";
-        visitanteSpan.textContent = `${partido.visitante} ${obtenerEmojiBandera(partido.codVisitante)}`;
-        matchDiv.append(numSpan, localSpan, vsSmall, visitanteSpan);
+        const vsSmall   = document.createElement("small"); vsSmall.textContent = "vs";
+        const visitSpan = document.createElement("span"); visitSpan.className = "team-name";
+        visitSpan.textContent = `${partido.visitante} ${obtenerEmojiBandera(partido.codVisitante)}`;
+        matchDiv.append(numSpan, localSpan, vsSmall, visitSpan);
 
         // Inputs
-        const predictionDiv = document.createElement("div");
-        predictionDiv.className = "prediction";
-        const inputLocal = document.createElement("input");
-        inputLocal.type = "number"; inputLocal.className = "goles-local"; inputLocal.min = "0";
-        inputLocal.value = golesLocalActual;
+        const predictionDiv  = document.createElement("div"); predictionDiv.className = "prediction";
+        const inputLocal     = document.createElement("input");
+        inputLocal.type = "number"; inputLocal.className = "goles-local"; inputLocal.min = "0"; inputLocal.value = golesLocalActual;
         inputLocal.addEventListener("input", e => { partido.golesLocal = parseInt(e.target.value) || 0; });
-        const dashSpan = document.createElement("span");
-        dashSpan.className = "dash"; dashSpan.textContent = "-";
+        const dashSpan       = document.createElement("span"); dashSpan.className = "dash"; dashSpan.textContent = "-";
         const inputVisitante = document.createElement("input");
-        inputVisitante.type = "number"; inputVisitante.className = "goles-visitante"; inputVisitante.min = "0";
-        inputVisitante.value = golesVisitanteActual;
+        inputVisitante.type = "number"; inputVisitante.className = "goles-visitante"; inputVisitante.min = "0"; inputVisitante.value = golesVisitanteActual;
         inputVisitante.addEventListener("input", e => { partido.golesVisitante = parseInt(e.target.value) || 0; });
         predictionDiv.append(inputLocal, dashSpan, inputVisitante);
 
         // Fecha
-        const dateDiv = document.createElement("div");
-        dateDiv.className = "date";
-        const clockIcon = document.createElement("i");
-        clockIcon.className = "bx bx-time-five";
-        const dateTextDiv = document.createElement("div");
-        dateTextDiv.className = "date-text";
+        const dateDiv     = document.createElement("div"); dateDiv.className = "date";
+        const clockIcon   = document.createElement("i"); clockIcon.className = "bx bx-time-five";
+        const dateTextDiv = document.createElement("div"); dateTextDiv.className = "date-text";
         dateTextDiv.append(document.createTextNode(partido.fecha), document.createElement("br"));
-        const hourSmall = document.createElement("small");
-        hourSmall.textContent = partido.hora;
-        dateTextDiv.appendChild(hourSmall);
-        dateDiv.append(clockIcon, dateTextDiv);
+        const hourSmall   = document.createElement("small"); hourSmall.textContent = partido.hora;
+        dateTextDiv.appendChild(hourSmall); dateDiv.append(clockIcon, dateTextDiv);
 
-        // ─── ESTADO DEL PARTIDO ───────────────────────────────
+        // ─── ESTADO ──────────────────────────────────────────
         const estadoDiv = document.createElement("div");
         estadoDiv.className = "estado-col";
 
         if (yaEmpezó) {
-            // Partido en curso — bloqueado para todos sin excepción
-            inputLocal.readOnly    = true;
-            inputVisitante.readOnly = true;
-            row.style.opacity      = "0.4";
-            estadoDiv.innerHTML    = `<span class="badge-estado-partido en-juego">⏱ En juego</span>`;
+            inputLocal.readOnly = inputVisitante.readOnly = true;
+            row.style.opacity   = "0.4";
+            estadoDiv.innerHTML = `<span class="badge-estado-partido en-juego">⏱ En juego</span>`;
 
         } else if (desbloqueado) {
-            // Tiene desbloqueo — puede editar si le quedan modificaciones
             if (modRestantes > 0) {
-                // Botón guardar individual por fila
                 const btnGuardarFila = document.createElement("button");
                 btnGuardarFila.className = "btn-guardar-fila";
-                btnGuardarFila.innerHTML = `💾 <small>${modRestantes} mod.</small>`;
-                btnGuardarFila.title = `Te quedan ${modRestantes} modificaciones para este partido`;
-                btnGuardarFila.addEventListener("click", () => guardarPartidoIndividual(partido, inputLocal, inputVisitante, btnGuardarFila));
+
+                // ─── LEYENDA DIFERENCIAL ──────────────────────
+                let leyenda, colorBorde, colorBg;
+
+                if (modRestantes === 1 && costoExtra > 0) {
+                    // Última mod + cobro extra
+                    leyenda     = `⚠️ Última modificación — te restará ${costoExtra} gol${costoExtra>1?'es':''}`;
+                    colorBorde  = "rgba(231,76,60,.7)";
+                    colorBg     = "rgba(231,76,60,.12)";
+                } else if (modRestantes === 1) {
+                    // Última mod sin cobro extra
+                    leyenda    = `⚠️ Última modificación — sin costo adicional`;
+                    colorBorde = "rgba(241,196,15,.6)";
+                    colorBg    = "rgba(241,196,15,.08)";
+                } else if (costoExtra > 0 && costo === 5) {
+                    // Zona 5 goles con diferencial
+                    leyenda    = `🔴 Menos de 30 min — te restará ${costoExtra} gol${costoExtra>1?'es':''}`;
+                    colorBorde = "rgba(231,76,60,.6)";
+                    colorBg    = "rgba(231,76,60,.08)";
+                } else if (costoExtra > 0 && costo === 3) {
+                    // Zona 3 goles con diferencial
+                    leyenda    = `⚡ Menos de 1 hora — te restará ${costoExtra} gol${costoExtra>1?'es':''}`;
+                    colorBorde = "rgba(241,196,15,.6)";
+                    colorBg    = "rgba(241,196,15,.06)";
+                } else {
+                    // Sin costo extra — ya pagó suficiente
+                    leyenda    = `💾 Guardar — sin costo adicional (${modRestantes} mod. restantes)`;
+                    colorBorde = "";
+                    colorBg    = "";
+                }
+
+                btnGuardarFila.innerHTML = `💾 <small>${leyenda}</small>`;
+                if (colorBorde) btnGuardarFila.style.borderColor = colorBorde;
+                if (colorBg)    btnGuardarFila.style.background  = colorBg;
+                btnGuardarFila.title = leyenda;
+
+                btnGuardarFila.addEventListener("click", () =>
+                    guardarPartidoIndividual(partido, inputLocal, inputVisitante, btnGuardarFila, fechaPartido)
+                );
                 estadoDiv.appendChild(btnGuardarFila);
+
             } else {
-                // Sin modificaciones restantes
-                inputLocal.readOnly    = true;
-                inputVisitante.readOnly = true;
-                estadoDiv.innerHTML    = `<span class="badge-estado-partido sin-mods">🔒 Sin modificaciones</span>`;
+                inputLocal.readOnly = inputVisitante.readOnly = true;
+                estadoDiv.innerHTML = `<span class="badge-estado-partido sin-mods">🔒 Sin modificaciones</span>`;
             }
 
         } else {
-            // Sin desbloqueo — mostrar botón de desbloquear con costo
-            inputLocal.readOnly    = true;
-            inputVisitante.readOnly = true;
-            row.style.opacity      = "0.6";
+            // Sin desbloqueo
+            inputLocal.readOnly = inputVisitante.readOnly = true;
+            row.style.opacity   = "0.6";
 
             if (!suscripcionUsuario) {
                 estadoDiv.innerHTML = `<span class="badge-estado-partido sin-plan">⚠️ Sin plan</span>`;
@@ -213,9 +228,25 @@ function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
             } else {
                 const btnDesbloquear = document.createElement("button");
                 btnDesbloquear.className = "btn-desbloquear-partido";
-                const textoEmergencia = costo > 1 ? ` ⚡${costo > 3 ? "URGENTE" : "pronto"}` : "";
-                btnDesbloquear.innerHTML = `🔓 <small>${costo} gol${costo > 1 ? "es" : ""}${textoEmergencia}</small>`;
-                btnDesbloquear.addEventListener("click", () => desbloquearPartido(partido, fechaPartido, row, btnDesbloquear));
+
+                // ─── LEYENDA SEGÚN TIEMPO ─────────────────────
+                if (costo === 5) {
+                    btnDesbloquear.innerHTML     = `🔴 <small>Desbloquear — te restará 5 goles (menos de 30 min)</small>`;
+                    btnDesbloquear.style.borderColor = "rgba(231,76,60,.7)";
+                    btnDesbloquear.style.color       = "#e74c3c";
+                    btnDesbloquear.style.background  = "rgba(231,76,60,.12)";
+                } else if (costo === 3) {
+                    btnDesbloquear.innerHTML     = `⚡ <small>Desbloquear — te restará 3 goles (menos de 1 hora)</small>`;
+                    btnDesbloquear.style.borderColor = "rgba(241,196,15,.6)";
+                    btnDesbloquear.style.color       = "#f1c40f";
+                    btnDesbloquear.style.background  = "rgba(241,196,15,.08)";
+                } else {
+                    btnDesbloquear.innerHTML = `🔓 <small>Desbloquear — te restará 1 gol</small>`;
+                }
+
+                btnDesbloquear.addEventListener("click", () =>
+                    desbloquearPartido(partido, fechaPartido, row, btnDesbloquear)
+                );
                 estadoDiv.appendChild(btnDesbloquear);
             }
         }
@@ -225,20 +256,15 @@ function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
     });
 }
 
-// ─── DESBLOQUEAR PARTIDO ─────────────────────────────────────────────────────
-
 async function desbloquearPartido(partido, fechaPartido, row, btn) {
     const idUsuario = parseInt(localStorage.getItem("idUsuario"));
     const costo     = calcularCostoFrontend(fechaPartido.getTime() - Date.now());
 
-    if (costo === null) {
-        mostrarMensaje("⛔ El partido ya empezó.", "error");
-        return;
-    }
+    if (costo === null) { mostrarMensaje("⛔ El partido ya empezó.", "error"); return; }
 
     const confirmar = confirm(
         `¿Desbloquear ${partido.local} vs ${partido.visitante}?\n` +
-        `Costo: ${costo} gol${costo > 1 ? "es" : ""}.\n` +
+        `Esto te restará ${costo} gol${costo > 1 ? "es" : ""}.\n` +
         `Goles disponibles: ${suscripcionUsuario?.GolesRestantes ?? 0}`
     );
     if (!confirmar) return;
@@ -246,25 +272,21 @@ async function desbloquearPartido(partido, fechaPartido, row, btn) {
     try {
         btn.disabled = true;
         const res  = await fetch(`${API_URL}/api/desbloquear-partido`, {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({ idUsuario, partidoId: partido.id, fechaPartido: fechaPartido.toISOString() })
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idUsuario, partidoId: partido.id, fechaPartido: fechaPartido.toISOString() })
         });
         const data = await res.json();
         mostrarMensaje(data.message, data.ok ? "success" : "error");
 
         if (data.ok) {
-            // Actualizar estado en memoria y re-renderizar
             suscripcionUsuario.GolesRestantes = data.golesRestantes;
             partidosDesbloqueados.push({ PartidoId: partido.id, ModificacionesUsadas: 0, GolesGastados: data.costo });
             actualizarPanelGoles();
-
-            // Re-renderizar solo esta fila recargando la página (más limpio)
             const selectGrupo = document.querySelector("#selectGrupo");
             const grupoActual = selectGrupo ? selectGrupo.value : "TODOS";
-            const lista = grupoActual === "TODOS" ? partidosGlobal : partidosGlobal.filter(p => p.grupo === grupoActual);
-            const resQ  = await fetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`);
-            const datosQ = await resQ.json();
+            const lista       = grupoActual === "TODOS" ? partidosGlobal : partidosGlobal.filter(p => p.grupo === grupoActual);
+            const resQ        = await fetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`);
+            const datosQ      = await resQ.json();
             renderizarPartidos(lista, datosQ.pronosticos);
         }
     } catch (error) {
@@ -274,42 +296,73 @@ async function desbloquearPartido(partido, fechaPartido, row, btn) {
     }
 }
 
-// ─── GUARDAR PARTIDO INDIVIDUAL ──────────────────────────────────────────────
+async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn, fechaPartido) {
+    const idUsuario  = parseInt(localStorage.getItem("idUsuario"));
+    const gl         = parseInt(inputLocal.value)     || 0;
+    const gv         = parseInt(inputVisitante.value)  || 0;
+    const desbloqueo = getDesbloqueo(partido.id);
+    const golesGastados = desbloqueo ? desbloqueo.GolesGastados : 0;
+    const msHasta    = fechaPartido.getTime() - Date.now();
+    const costoActual = calcularCostoFrontend(msHasta) || 1;
+    const costoExtra  = calcularCostoDiferencial(costoActual, golesGastados);
+    const modRestantes = desbloqueo ? (3 - desbloqueo.ModificacionesUsadas) : 0;
 
-async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn) {
-    const idUsuario = parseInt(localStorage.getItem("idUsuario"));
-    const gl = parseInt(inputLocal.value)    || 0;
-    const gv = parseInt(inputVisitante.value) || 0;
+    // Confirmación con leyenda clara
+    let msgConfirm = `¿Guardar pronóstico ${partido.local} vs ${partido.visitante}?`;
+    if (costoExtra > 0) {
+        msgConfirm += `\n\nEsto te restará ${costoExtra} gol${costoExtra>1?'es':''} adicional${costoExtra>1?'es':''}.`;
+        msgConfirm += `\nGoles disponibles: ${suscripcionUsuario?.GolesRestantes ?? 0}`;
+    } else {
+        msgConfirm += `\n\nSin costo adicional de goles.`;
+    }
+    if (modRestantes === 2) {
+        msgConfirm += `\n\n⚠️ Al guardar te quedará 1 último cambio para este partido.`;
+    }
+
+    if (!confirm(msgConfirm)) return;
 
     try {
-        btn.disabled   = true;
-        btn.innerHTML  = `⏳`;
-        const res  = await fetch(`${API_URL}/api/guardar-quiniela`, {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            body:    JSON.stringify({
+        btn.disabled  = true;
+        btn.innerHTML = `⏳`;
+
+        const res = await fetch(`${API_URL}/api/guardar-quiniela`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
                 idUsuario,
-                pronosticos: [{ partidoId: partido.id, golesLocal: gl, golesVisitante: gv }]
+                pronosticos: [{ partidoId: partido.id, golesLocal: gl, golesVisitante: gv }],
+                fechasPartidos: { [partido.id]: fechaPartido.toISOString() }
             })
         });
         const data = await res.json();
         mostrarMensaje(data.message, data.ok ? "success" : "error");
 
         if (data.ok) {
-            // Actualizar modificaciones en memoria
+            // Actualizar estado en memoria
             const d = partidosDesbloqueados.find(d => d.PartidoId === partido.id);
-            if (d) d.ModificacionesUsadas++;
-            partido.golesLocal     = gl;
-            partido.golesVisitante = gv;
-            const modRestantes = 3 - (d ? d.ModificacionesUsadas : 0);
+            if (d) {
+                d.ModificacionesUsadas++;
+                d.GolesGastados = Math.max(d.GolesGastados, costoActual);
+            }
+            if (suscripcionUsuario && costoExtra > 0) {
+                suscripcionUsuario.GolesRestantes = data.golesRestantes ?? (suscripcionUsuario.GolesRestantes - costoExtra);
+                actualizarPanelGoles();
+            }
+
+            partido.golesLocal = gl; partido.golesVisitante = gv;
+            const nuevasModRestantes = d ? (3 - d.ModificacionesUsadas) : 0;
             btn.disabled = false;
-            btn.innerHTML = modRestantes > 0
-                ? `💾 <small>${modRestantes} mod.</small>`
-                : `🔒 <small>Sin modificaciones</small>`;
-            if (modRestantes === 0) {
-                btn.disabled = true;
-                inputLocal.readOnly = true;
-                inputVisitante.readOnly = true;
+
+            if (nuevasModRestantes === 0) {
+                btn.innerHTML = `🔒 <small>Sin modificaciones</small>`;
+                btn.disabled  = true;
+                inputLocal.readOnly = inputVisitante.readOnly = true;
+            } else if (nuevasModRestantes === 1) {
+                btn.innerHTML        = `💾 <small style="color:#f1c40f;">⚠️ Última modificación disponible</small>`;
+                btn.style.borderColor = "rgba(241,196,15,.6)";
+            } else {
+                btn.innerHTML = `💾 <small>${nuevasModRestantes} mod. restantes</small>`;
+                btn.style.borderColor = "";
+                btn.style.background  = "";
             }
         } else {
             btn.disabled  = false;
@@ -321,8 +374,6 @@ async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn
         btn.innerHTML = `💾`;
     }
 }
-
-// ─── PRONÓSTICO DE CAMPEÓN ───────────────────────────────────────────────────
 
 async function inicializarPronosticoCampeon() {
     const idUsuario = parseInt(localStorage.getItem("idUsuario"));
@@ -351,9 +402,7 @@ async function inicializarPronosticoCampeon() {
         const seleccion      = document.getElementById("inputCampeon")?.value.trim();
         const golesLocal     = parseInt(document.getElementById("inputCampeonGL")?.value) ?? 0;
         const golesVisitante = parseInt(document.getElementById("inputCampeonGV")?.value) ?? 0;
-
         if (!seleccion) { mostrarMensaje("⚠️ Escribe la selección campeona.", "error"); return; }
-
         try {
             btnCampeon.disabled = true;
             const res  = await fetch(`${API_URL}/api/campeon`, {
@@ -366,8 +415,6 @@ async function inicializarPronosticoCampeon() {
         finally  { btnCampeon.disabled = false; }
     });
 }
-
-// ─── UTILIDADES ──────────────────────────────────────────────────────────────
 
 function mostrarMensaje(texto, tipo) {
     const el = document.querySelector("#mensajeQuiniela");
@@ -415,7 +462,7 @@ function cargarPerfilUsuario() {
     if (nombreHeader && nombreGuardado) nombreHeader.textContent = nombreGuardado;
     const imgSidebar = document.getElementById("imgAvatarSidebar");
     if (imgSidebar && fotoGuardada && fotoGuardada !== "") {
-        imgSidebar.src    = fotoGuardada;
+        imgSidebar.src     = fotoGuardada;
         imgSidebar.onerror = () => { imgSidebar.src = "./img/user-icon.png"; };
     }
 }
