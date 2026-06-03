@@ -1,18 +1,20 @@
 const btnRegistro = document.querySelector(".btn-registro");
 
-// ✅ FIX: URL dinámica — usa el mismo servidor que sirve la página
-// Así funciona en localhost Y en producción sin tocar el código
-const API_BASE = window.location.hostname === "localhost"
-    ? "http://localhost:3000"
-    : `http://${window.location.hostname}:3000`;
-
 btnRegistro.addEventListener("click", async function () {
-    const nombre = document.querySelector("#usuario").value.trim();
-    const correo = document.querySelector("#correo").value.trim();
-    const password = document.querySelector("#password").value;
-    const mensaje = document.querySelector("#mensajeRegistro");
-    const preguntaSeguridad = document.querySelector("#regPregunta").value;
+    const nombre             = document.querySelector("#usuario").value.trim();
+    const correo             = document.querySelector("#correo").value.trim();
+    const password           = document.querySelector("#password").value;
+    const mensaje            = document.querySelector("#mensajeRegistro");
+    const preguntaSeguridad  = document.querySelector("#regPregunta").value;
     const respuestaSeguridad = document.querySelector("#regRespuesta").value.trim();
+    const codigoInvitacion   = document.querySelector("#codigoInvitacion")?.value.trim(); // ✅ NUEVO
+
+    // Validaciones
+    if (codigoInvitacion === "") {
+        mensaje.textContent = "⚠️ Ingresa el código de invitación.";
+        mensaje.className = "mensaje error";
+        return;
+    }
 
     if (respuestaSeguridad === "") {
         mensaje.textContent = "Por favor, escribe una respuesta a tu pregunta de seguridad.";
@@ -50,7 +52,8 @@ btnRegistro.addEventListener("click", async function () {
                 correo,
                 password,
                 preguntaSeguridad,
-                respuestaSeguridad
+                respuestaSeguridad,
+                codigoInvitacion   // ✅ NUEVO
             })
         });
 

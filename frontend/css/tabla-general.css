@@ -160,3 +160,10 @@ body{
     .podium-container{ flex-direction: column; align-items: center; gap: 1rem; }
     .podium-card{ width: 90%; }
 }
+
+@media(max-width: 760px){
+    .main-content {
+        margin-left: 0 !important;
+        padding-top: 4rem;
+    }
+}

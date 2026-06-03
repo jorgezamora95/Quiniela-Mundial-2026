@@ -55,9 +55,14 @@
             <div class="input-group" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.2rem;">
                 <label style="color: #b8c2d6; font-weight: bold; font-size: 0.9rem;">Tu Respuesta Secreta:</label>
                 <input type="text" id="regRespuesta" placeholder="No olvides tu respuesta" autocomplete="off"
-                    style="width: 100%; padding: .8rem; background: #05101a; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; color: white; outline: none;">
+                    style="width: 92%; padding: .8rem; background: #05101a; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; color: white; outline: none;">
             </div>
-
+            <div class="inputbox-user">
+                <i class="fa-solid fa-key"></i>
+                <input type="text" id="codigoInvitacion" 
+                    placeholder="Código de invitación" 
+                    autocomplete="off">
+            </div>
             <div>
                 <p id="mensajeRegistro" class="mensaje"></p>
                 <input class="btn-registro" type="button" value="Registrarse">
@@ -66,11 +71,13 @@
                 <a href="login.html">Regresar</a>
             </div>
         </form>
+            <p style="margin-top:1.5rem; font-size:.68rem; color:rgba(255,255,255,.18); text-align:center; line-height:1.8;">
+            © 2026 Quiniela Mundial — Todos los derechos reservados<br>
+            <span style="color:rgba(46,204,113,.35);">Powered by ZamTech Data Engine</span>
+        </p>
     </div>
+    <script src="./js/config.js"></script>
     <script src="./js/registro.js"></script>
-    <!-- <footer>
-        <h5>Quiniela Mundial 2026 © Todos los derechos reservados</h5>
-    </footer> -->
 </body>
 
 </html>

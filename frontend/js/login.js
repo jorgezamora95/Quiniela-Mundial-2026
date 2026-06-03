@@ -4,7 +4,7 @@ btnEntrar.addEventListener("click", async function () {
     const correo = document.querySelector("#correo").value;
     const password = document.querySelector("#password").value;
 
-    const response = await fetch("http://localhost:3000/api/login", {
+    const response = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
@@ -26,7 +26,7 @@ btnEntrar.addEventListener("click", async function () {
 
         localStorage.setItem("idUsuario", data.usuario.idUsuario);
         localStorage.setItem("usuarioActivo", JSON.stringify(data.usuario));
-        localStorage.setItem("Nombre", data.usuario.nombre); // Guarda el string, ej: "Jorge Zamora"
+        localStorage.setItem("Nombre", data.usuario.nombre);
         localStorage.setItem("FotoUrl", data.usuario.fotoUrl || "");
 
         setTimeout(() => {

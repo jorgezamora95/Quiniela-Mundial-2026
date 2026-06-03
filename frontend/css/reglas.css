@@ -74,3 +74,10 @@ body{
         padding: 1rem;
     }
 }
+
+@media(max-width: 760px){
+    .main-content {
+        margin-left: 0 !important;
+        padding-top: 4rem;
+    }
+}

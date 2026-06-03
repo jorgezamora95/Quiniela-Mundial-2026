@@ -96,9 +96,9 @@ body{
     box-shadow: 0 20px 70px rgba(0,0,0,.22);
 }
 
-.quiniela-row{
+.quiniela-row {
     display: grid;
-    grid-template-columns: 1.8fr 1fr .7fr;
+    grid-template-columns: 1.8fr 1fr .7fr auto; /* ← agrega auto al final */
     align-items: center;
     padding: 1rem 1.2rem;
     border-bottom: 1px solid rgba(255,255,255,.08);
@@ -445,6 +445,112 @@ body{
     font-family: "Twemoji Mozilla", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
 }
 
+
+/* Botón de solicitar desbloqueo en cada fila */
+.btn-solicitar-token {
+    background: rgba(231, 76, 60, 0.15);
+    border: 1px solid rgba(231, 76, 60, 0.4);
+    color: #e74c3c;
+    padding: .4rem .8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .8rem;
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    transition: all .2s;
+    white-space: nowrap;
+}
+.btn-solicitar-token:hover {
+    background: rgba(231, 76, 60, 0.3);
+    border-color: #e74c3c;
+}
+
+/* Badge de partido desbloqueado con token */
+.token-badge-desbloqueado {
+    color: #2ecc71;
+    font-size: .8rem;
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .3rem .6rem;
+    background: rgba(46, 204, 113, 0.1);
+    border: 1px solid rgba(46, 204, 113, 0.3);
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+/* Modal de solicitud de token */
+.modal-token-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+}
+.modal-token-card {
+    background: #0d1f33;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.modal-token-card h3 {
+    font-size: 1.4rem;
+    margin-bottom: .5rem;
+}
+.modal-token-opciones {
+    display: flex;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+.token-opcion {
+    flex: 1;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+}
+.token-opcion-full {
+    border-color: rgba(241, 196, 15, 0.4);
+    background: rgba(241, 196, 15, 0.05);
+}
+.token-precio {
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #2ecc71;
+}
+.token-opcion-full .token-precio {
+    color: #f1c40f;
+}
+.modal-token-instruccion {
+    color: #b8c2d6;
+    font-size: .9rem;
+    margin: 1rem 0;
+}
+.btn-cerrar-modal {
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.15);
+    color: white;
+    padding: .6rem 2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .2s;
+}
+.btn-cerrar-modal:hover {
+    background: rgba(255,255,255,.15);
+}
+
+
 /* RESPONSIVE */
 
 @media(max-width: 1100px){
@@ -488,5 +594,361 @@ body{
 
     .save-btn{
         width: 90%;
+    }
+}
+
+/* ─── ESTADO COL ─────────────────────────── */
+.estado-col {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+/* Badge En Juego */
+.badge-estado-partido {
+    font-size: .78rem;
+    padding: .3rem .6rem;
+    border-radius: 8px;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+}
+.badge-estado-partido.en-juego {
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    color: #b8c2d6;
+}
+.badge-estado-partido.sin-mods {
+    background: rgba(231,76,60,.1);
+    border: 1px solid rgba(231,76,60,.3);
+    color: #e74c3c;
+}
+.badge-estado-partido.sin-plan {
+    background: rgba(241,196,15,.1);
+    border: 1px solid rgba(241,196,15,.3);
+    color: #f1c40f;
+}
+
+/* Botón guardar por fila */
+.btn-guardar-fila {
+    background: rgba(46,204,113,.15);
+    border: 1px solid rgba(46,204,113,.4);
+    color: #2ecc71;
+    padding: .4rem .8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .8rem;
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    transition: all .2s;
+    white-space: nowrap;
+}
+.btn-guardar-fila:hover { background: rgba(46,204,113,.3); }
+.btn-guardar-fila:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Botón desbloquear */
+.btn-desbloquear-partido {
+    background: rgba(52,152,219,.15);
+    border: 1px solid rgba(52,152,219,.4);
+    color: #3498db;
+    padding: .4rem .8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: .8rem;
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+    transition: all .2s;
+    white-space: nowrap;
+}
+.btn-desbloquear-partido:hover { background: rgba(52,152,219,.3); }
+
+/* ─── PANEL DE GOLES ─────────────────────── */
+.goles-info { display: flex; flex-direction: column; gap: .6rem; }
+.goles-row  { display: flex; justify-content: space-between; align-items: center; }
+.goles-row strong { color: #2ecc71; font-size: 1.1rem; }
+
+.barra-goles-bg   { background: rgba(255,255,255,.08); border-radius: 6px; height: 8px; overflow: hidden; }
+.barra-goles-fill { background: linear-gradient(90deg,#2ecc71,#169b4f); height: 100%; border-radius: 6px; transition: width .4s ease; }
+
+.tabla-costos { margin-top: 1rem; border-top: 1px solid rgba(255,255,255,.07); padding-top: .8rem; }
+.tabla-costos h4 { font-size: .85rem; color: #b8c2d6; margin: 0 0 .6rem; }
+.costo-row { display: flex; justify-content: space-between; font-size: .82rem; padding: .3rem 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+.costo-row strong     { color: #2ecc71; }
+.costo-row.urgente strong   { color: #f1c40f; }
+.costo-row.critico strong   { color: #e74c3c; }
+.costo-row.bloqueado strong { color: #b8c2d6; }
+
+/* ─── REGLAS RÁPIDAS ─────────────────────── */
+.regla-row-q { display:flex; justify-content:space-between; padding:.4rem 0; border-bottom:1px solid rgba(255,255,255,.05); font-size:.85rem; }
+
+/* ─── SECCIÓN CAMPEÓN ────────────────────── */
+.panel-campeon {
+    background: rgba(7,17,31,.9);
+    border: 1px solid rgba(241,196,15,.3);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    box-shadow: 0 10px 40px rgba(241,196,15,.06);
+}
+.campeon-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+.campeon-icon { font-size: 2.5rem; line-height: 1; }
+.campeon-header h3 { margin: 0 0 .3rem; color: #f1c40f; }
+.campeon-header p  { margin: 0; color: #dce6ef; font-size: .9rem; }
+
+.campeon-form {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr auto;
+    gap: 1rem;
+    align-items: end;
+}
+.campeon-input-group { display: flex; flex-direction: column; gap: .3rem; }
+.campeon-input-group label { color: #b8c2d6; font-size: .82rem; }
+.campeon-input-group input {
+    background: rgba(5,16,26,.7);
+    border: 1px solid rgba(241,196,15,.3);
+    color: white;
+    padding: .6rem 1rem;
+    border-radius: 8px;
+    outline: none;
+    transition: border-color .2s;
+}
+.campeon-input-group input:focus { border-color: #f1c40f; }
+
+.campeon-marcador { display: flex; align-items: flex-end; gap: .5rem; }
+.campeon-marcador input { width: 70px; text-align: center; }
+.campeon-vs { color: #b8c2d6; padding-bottom: .7rem; font-weight: bold; }
+
+.btn-campeon {
+    background: linear-gradient(135deg, #f1c40f, #d4ac0d);
+    color: #000;
+    border: none;
+    padding: .7rem 1.2rem;
+    border-radius: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: .25s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.btn-campeon:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(241,196,15,.3); }
+
+
+@media (max-width: 760px) {
+
+    body{
+        overflow-x: hidden;
+    }
+
+    /* CONTENEDOR PRINCIPAL */
+    .main-content{
+        margin-left: 0 !important;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 1rem;
+        padding-top: 4rem !important;
+        display: block;
+    }
+
+    /* OCULTAMOS PANEL DERECHO */
+    .right-panel{
+        display: none;
+    }
+
+    /* HEADER */
+    .page-header{
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        overflow-x: hidden;
+        gap: 1rem;
+    }
+
+    .page-header h2{
+        font-size: 2rem;
+    }
+
+    .timer-card{
+        width: 100%;
+        min-width: unset;
+        box-sizing: border-box;
+    }
+
+    .timer-card h3{
+        font-size: 1.3rem;
+        text-align: center;
+    }
+
+    .timer-labels{
+        justify-content: center;
+        gap: .8rem;
+    }
+
+    .filtro-grupo{
+        width: 100%;
+    }
+
+    .filtro-grupo select{
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+
+    /* TABLA */
+    .table-head{
+        display: none;
+    }
+
+    .quiniela-card{
+        max-height: none;
+        overflow: visible;
+        padding-bottom: .5rem;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+    }
+
+    /* CADA PARTIDO COMO TARJETA */
+    .quiniela-row{
+        display: flex;
+        flex-direction: column;
+        gap: .8rem;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        background: rgba(7,17,31,.88);
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 16px;
+    }
+
+    /* EQUIPOS */
+    .match{
+        display: grid;
+        grid-template-columns: 30px 1fr 30px 1fr;
+        gap: .5rem;
+        align-items: center;
+    }
+
+    .team-name{
+        font-size: .9rem;
+    }
+
+    /* PRONOSTICO */
+    .prediction{
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .prediction input{
+        width: 58px;
+        height: 44px;
+        font-size: 1.1rem;
+    }
+
+    /* FECHA */
+    .date{
+        justify-content: center;
+        text-align: center;
+        flex-wrap: wrap;
+    }
+
+    /* ESTADO */
+    .estado-col{
+        justify-content: center;
+    }
+
+    .btn-guardar-fila,
+    .btn-desbloquear-partido,
+    .btn-solicitar-token{
+        width: 100%;
+        justify-content: center;
+        min-height: 42px;
+    }
+
+    .badge-estado-partido,
+    .token-badge-desbloqueado{
+        justify-content: center;
+    }
+
+    /* MENSAJE */
+    .warning{
+        text-align: left;
+        line-height: 1.5;
+    }
+
+    /* CAMPEON */
+    .campeon-header{
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .campeon-icon{
+        font-size: 3rem;
+    }
+
+    .campeon-form{
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .campeon-marcador{
+        justify-content: center;
+    }
+
+    .campeon-input-group input{
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .btn-campeon{
+        width: 100%;
+        justify-content: center;
+    }
+
+    /* MODAL TOKEN */
+    .modal-token-opciones{
+        flex-direction: column;
+    }
+
+    .modal-token-card{
+        width: calc(100% - 2rem);
+        padding: 1.2rem;
+    }
+
+}
+
+/* TELEFONOS PEQUEÑOS */
+@media (max-width: 480px){
+
+    .page-header h2{
+        font-size: 1.8rem;
+    }
+
+    .team-name{
+        font-size: .82rem;
+    }
+
+    .prediction input{
+        width: 50px;
+        height: 40px;
+    }
+
+    .timer-card h3{
+        font-size: 1.1rem;
+    }
+
+    .campeon-vs{
+        padding-bottom: .5rem;
     }
 }
