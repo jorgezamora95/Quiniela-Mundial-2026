@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiniela Mundial 2026 | Privada</title>
+    <meta name="description" content="Demuestra tu conocimiento del fútbol en la Quiniela Mundial 2026. Torneo cerrado con acceso exclusivo por invitación. Administra tus Goles y llévate el acumulado.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        darkBg: '#030712', // Negro más profundo para premium feel
+                        cardBg: 'rgba(17, 24, 39, 0.7)', // Translúcido para glassmorphism
+                        accent: '#10b981', // Verde esmeralda
+                        accentCyan: '#06b6d4', // Cyan para degradados
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                        'float-delayed': 'float 6s ease-in-out 3s infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom Glowing & Grid styles */
+        .glass-card {
+            background: rgba(17, 24, 39, 0.55);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .glass-card-accent {
+            background: rgba(16, 185, 129, 0.03);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .glow-bg {
+            background: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.05) 50%, transparent 100%);
+        }
+
+        /* Abstract Soccer Field Grid */
+        .field-grid {
+            background-size: 40px 40px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        }
+
+        /* Glowing text glow */
+        .neon-text-glow {
+            text-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Keyframes for custom slider or notification transitions */
+        @keyframes slideInUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .animate-slide-up {
+            animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="bg-darkBg text-gray-200 font-sans antialiased min-h-screen flex flex-col relative overflow-x-hidden selection:bg-emerald-500/30 selection:text-emerald-300">
+
+    <!-- Decorative background elements -->
+    <div class="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full glow-bg pointer-events-none filter blur-[80px]"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full glow-bg pointer-events-none filter blur-[80px]"></div>
+    <div class="absolute inset-0 field-grid pointer-events-none opacity-40"></div>
+    
+    <!-- Soccer Pitch Lines overlay (abstract lines) -->
+    <svg class="absolute top-20 left-1/2 -translate-x-1/2 w-full max-w-[1200px] h-auto aspect-[2/1] opacity-[0.03] pointer-events-none" viewBox="0 0 1200 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="10" y="10" width="1180" height="580" rx="10" stroke="white" stroke-width="4"/>
+        <line x1="600" y1="10" x2="600" y2="590" stroke="white" stroke-width="4"/>
+        <circle cx="600" cy="300" r="120" stroke="white" stroke-width="4"/>
+        <rect x="10" y="150" width="150" height="300" stroke="white" stroke-width="4"/>
+        <rect x="1030" y="150" width="150" height="300" stroke="white" stroke-width="4"/>
+    </svg>
+
+    <!-- Navigation Header -->
+    <nav class="w-full py-4 px-4 sm:px-8 md:px-12 flex justify-between items-center border-b border-gray-800/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="text-xl sm:text-2xl font-display font-extrabold tracking-tighter text-white flex items-center gap-1.5">
+            <span class="text-2xl sm:text-3xl animate-bounce-slow">⚽</span> Quiniela<span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">26</span>
+        </div>
+        <div>
+            <a href="#login" class="inline-flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm font-semibold text-gray-300 hover:text-accent transition duration-300 bg-gray-900/60 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border border-gray-800 hover:border-accent/40 shadow-inner">
+                <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                Ya tengo código
+            </a>
+        </div>
+    </nav>
+
+    <!-- Hero Content & Login Code Input -->
+    <main class="flex-grow flex flex-col items-center justify-center text-center px-4 pt-16 pb-20 relative z-10">
+        <!-- Invitation Badge -->
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400 mb-8 tracking-wider uppercase animate-pulse-slow shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            Torneo Cerrado - Acceso por Invitación
+        </div>
+        
+        <!-- Main Headline -->
+        <h1 class="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black text-white mb-6 tracking-tight leading-[1.1] md:leading-[1.05]">
+            El Mundial <br> 
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 neon-text-glow">
+                Se Juega Aquí.
+            </span>
+        </h1>
+        
+        <!-- Subtitle -->
+        <p class="text-sm sm:text-base md:text-xl text-gray-400 max-w-2xl mb-8 sm:mb-12 font-medium leading-relaxed">
+            Demuestra que sabes más que tus amigos, administra tus <strong class="text-white font-semibold">Goles</strong> con estrategia y llévate el acumulado. Elige tu paquete y solicita tu código de acceso.
+        </p>
+
+        <!-- Access Code Input Block -->
+        <div class="w-full max-w-xl mx-auto mb-6 p-1.5 rounded-2xl bg-gray-900/80 border border-gray-800/80 shadow-2xl backdrop-blur-md focus-within:border-emerald-500/50 transition-all duration-300" id="login">
+            <form id="code-form" onsubmit="handleCodeSubmit(event)" class="flex flex-col sm:flex-row gap-2">
+                <input 
+                    type="text" 
+                    id="access-code"
+                    placeholder="Ingresa tu código (Ej. Q-26-A9B8)" 
+                    required
+                    class="flex-grow px-6 py-4 rounded-xl bg-gray-950/60 border-0 focus:ring-2 focus:ring-emerald-500/20 text-white placeholder-gray-500 uppercase tracking-widest text-center sm:text-left text-sm font-semibold transition duration-300 focus:outline-none"
+                >
+                <button 
+                    type="submit"
+                    id="submit-btn"
+                    class="px-8 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-darkBg font-extrabold text-sm uppercase tracking-wider transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-[0_4px_20px_rgba(16,185,129,0.3)] hover:shadow-[0_4px_25px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2 group"
+                >
+                    <span id="btn-text">Entrar a la Cancha</span>
+                    <!-- Loading Spinner (hidden by default) -->
+                    <svg id="btn-spinner" class="hidden animate-spin h-5 w-5 text-darkBg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <!-- Ball Icon -->
+                    <svg id="btn-ball" class="w-4 h-4 transition-transform group-hover:rotate-45" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.012 2C6.492 2 2.012 6.48 2.012 12s4.48 10 10 10 10-4.48 10-10-4.48-10-10-10zm0 1.5c1.47 0 2.84.4 4.02 1.09l-1.39 2.41a6.456 6.456 0 00-5.26 0L8 4.59c1.18-.69 2.55-1.09 4.012-1.09zm-5.3 1.84l1.39 2.41a6.457 6.457 0 00-2.63 4.55H2.522c.1-2.62 1.7-4.91 4.19-6.96zm-4.17 8.47h2.95a6.46 6.46 0 002.63 4.55L6.732 20.7c-2.49-2.05-4.09-4.34-4.19-6.96zm13.9 4.55a6.46 6.46 0 002.63-4.55h2.95c-.1 2.62-1.7 4.91-4.19 6.96l-1.39-2.41zm5.33-6.05h-2.95a6.457 6.457 0 00-2.63-4.55l1.39-2.41c2.49 2.05 4.09 4.34 4.19 6.96zM12.012 8.5c1.93 0 3.5 1.57 3.5 3.5s-1.57 3.5-3.5 3.5-3.5-1.57-3.5-3.5 1.57-3.5 3.5-3.5z"/></svg>
+                </button>
+            </form>
+        </div>
+
+        <!-- Custom alerts for error states -->
+        <div id="validation-alert" class="hidden w-full max-w-xl mx-auto p-4 rounded-xl border border-red-500/30 bg-red-950/40 text-red-300 text-sm font-medium animate-slide-up flex items-start gap-3 text-left">
+            <svg class="w-5 h-5 text-red-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <div>
+                <span class="font-bold block text-red-200">Código de acceso no válido</span>
+                <span id="alert-message">El boleto no ha sido activado por el administrador o no existe. Confirma que esté bien escrito o solicita un código nuevo.</span>
+            </div>
+        </div>
+
+        <!-- Request Link -->
+        <div class="mt-6">
+            <a 
+                href="https://wa.me/5215500000000?text=Hola%2C%20quiero%20comprar%20un%20c%C3%B3digo%20para%20la%20quiniela" 
+                id="main-wa-link"
+                target="_blank" 
+                class="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-emerald-400 underline underline-offset-4 decoration-gray-600 hover:decoration-emerald-500/50 transition duration-300 font-semibold"
+            >
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.513 2.262 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.97C16.59 2.028 14.11 1.002 11.99 1.002c-5.434 0-9.858 4.37-9.863 9.8a9.716 9.716 0 001.492 5.056l-.975 3.56 3.652-.958zm12.35-7.116c-.327-.164-1.938-.957-2.239-1.067-.3-.11-.518-.164-.737.164-.218.327-.847 1.067-1.038 1.285-.19.219-.382.246-.709.082-.327-.164-1.382-.51-2.632-1.625-.973-.867-1.63-1.94-1.821-2.268-.19-.328-.02-.505.144-.668.148-.146.327-.382.49-.574.164-.19.219-.328.328-.546.11-.219.055-.41-.028-.574-.082-.164-.737-1.777-1.01-2.434-.266-.64-.537-.552-.737-.562-.19-.01-.41-.01-.628-.01-.218 0-.573.082-.874.41-.3.327-1.147 1.12-1.147 2.733 0 1.612 1.173 3.169 1.336 3.388.164.22 2.308 3.525 5.59 4.95 2.73 1.186 3.284.95 4.453.84.1.285 2.239.915 2.553 1.8.314.88.314 1.64.157 1.8-.157.16-.737.327-1.01.327z"/></svg>
+                ¿No tienes código? Solicita uno al administrador
+            </a>
+        </div>
+    </main>
+
+    <!-- How it Works Interactive Guide -->
+    <section class="w-full max-w-6xl mx-auto px-6 py-12 border-t border-gray-900">
+        <h2 class="text-3xl font-display font-bold text-center mb-12 text-white">¿Cómo funciona la Quiniela?</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div class="p-6 rounded-2xl bg-gray-950/40 border border-gray-800/50 flex flex-col items-center text-center">
+                <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-display font-black text-xl mb-4 shadow-[0_0_15px_rgba(16,185,129,0.05)]">1</div>
+                <h3 class="text-lg font-bold text-white mb-2">Compra tu Código</h3>
+                <p class="text-gray-400 text-sm leading-relaxed">Elige uno de los paquetes debajo según tus aspiraciones. Recibirás un código de acceso único.</p>
+            </div>
+            <div class="p-6 rounded-2xl bg-gray-950/40 border border-gray-800/50 flex flex-col items-center text-center">
+                <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-display font-black text-xl mb-4 shadow-[0_0_15px_rgba(16,185,129,0.05)]">2</div>
+                <h3 class="text-lg font-bold text-white mb-2">Administra tus Goles</h3>
+                <p class="text-gray-400 text-sm leading-relaxed">Usa tu saldo de Goles con inteligencia. Asigna mayor cantidad de Goles a tus pronósticos más seguros para multiplicar tus puntos.</p>
+            </div>
+            <div class="p-6 rounded-2xl bg-gray-950/40 border border-gray-800/50 flex flex-col items-center text-center">
+                <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-display font-black text-xl mb-4 shadow-[0_0_15px_rgba(16,185,129,0.05)]">3</div>
+                <h3 class="text-lg font-bold text-white mb-2">Llévate el Acumulado</h3>
+                <p class="text-gray-400 text-sm leading-relaxed">Sigue la tabla de posiciones en tiempo real. ¡El jugador con más puntos acumulados se lleva el gran pozo al finalizar el Mundial!</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="w-full max-w-6xl mx-auto px-4 py-16" id="packages">
+        <div class="text-center mb-14">
+            <h2 class="text-3xl md:text-4xl font-display font-black text-white mb-3">Paquetes de Participación</h2>
+            <p class="text-gray-400 max-w-xl mx-auto text-sm md:text-base">Adquiere tus accesos hoy. Los goles en monedero te permiten realizar y potenciar tus predicciones a lo largo del torneo.</p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+            
+            <!-- Basic Package -->
+            <div class="glass-card rounded-3xl p-6 sm:p-8 hover:border-gray-700/80 transition duration-300 flex flex-col justify-between group hover:-translate-y-1">
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="text-4xl bg-gray-800/40 w-14 h-14 rounded-2xl flex items-center justify-center border border-gray-700/50 group-hover:scale-110 transition duration-300">🥉</div>
+                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest bg-gray-900 px-3 py-1 rounded-full border border-gray-850">Acceso Bronce</span>
+                    </div>
+                    <h3 class="text-2xl font-display font-extrabold text-white mb-2">Básico</h3>
+                    <div class="flex items-baseline gap-1.5 mb-6">
+                        <span class="text-4xl font-black text-white">$250</span>
+                        <span class="text-sm font-bold text-emerald-400">MXN</span>
+                    </div>
+                    <hr class="border-gray-800/60 mb-6">
+                    <ul class="text-gray-300 text-sm space-y-4 mb-8">
+                        <li class="flex items-center gap-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <span><strong>25 Goles</strong> en monedero</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <span>Cubre hasta 25 partidos</span>
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-400/80">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <span>Pronóstico de Campeón</span>
+                        </li>
+                    </ul>
+                </div>
+                <button 
+                    onclick="requestPackage('Básico', '$250 MXN')"
+                    class="w-full py-4 px-6 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700/60 text-white font-bold text-sm tracking-wide transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] active:scale-[0.98]"
+                >
+                    Solicitar Código
+                </button>
+            </div>
+            
+            <!-- Standard / Popular Package -->
+            <div class="glass-card rounded-3xl p-6 sm:p-8 hover:border-gray-700/80 transition duration-300 flex flex-col justify-between group hover:-translate-y-1">
+                <div>
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="text-4xl bg-gray-800/40 w-14 h-14 rounded-2xl flex items-center justify-center border border-gray-700/50 group-hover:scale-110 transition duration-300">🥈</div>
+                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest bg-gray-900 px-3 py-1 rounded-full border border-gray-850">Acceso Plata</span>
+                    </div>
+                    <h3 class="text-2xl font-display font-extrabold text-white mb-2">Estándar</h3>
+                    <div class="flex items-baseline gap-1.5 mb-6">
+                        <span class="text-4xl font-black text-white">$500</span>
+                        <span class="text-sm font-bold text-emerald-400">MXN</span>
+                    </div>
+                    <hr class="border-gray-800/60 mb-6">
+                    <ul class="text-gray-300 text-sm space-y-4 mb-8">
+                        <li class="flex items-center gap-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <span><strong>60 Goles</strong> en monedero</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <span>Cubre hasta 60 partidos</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <span>Pronóstico de Campeón</span>
+                        </li>
+                    </ul>
+                </div>
+                <button 
+                    onclick="requestPackage('Estándar', '$500 MXN')"
+                    class="w-full py-4 px-6 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700/60 text-white font-bold text-sm tracking-wide transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] active:scale-[0.98]"
+                >
+                    Solicitar Código
+                </button>
+            </div>
+            
+            <!-- Premium Package -->
+            <div class="glass-card-accent rounded-3xl p-6 sm:p-8 transition duration-300 relative flex flex-col justify-between shadow-[0_15px_30px_rgba(16,185,129,0.08)] transform md:-translate-y-4 hover:-translate-y-5 group">
+                <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-darkBg text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider shadow-lg shadow-emerald-500/25">
+                    Recomendado
+                </div>
+                <div>
+                    <div class="flex justify-between items-start mb-6 mt-2">
+                        <div class="text-4xl bg-emerald-500/10 w-14 h-14 rounded-2xl flex items-center justify-center border border-emerald-500/30 group-hover:scale-110 transition duration-300">🏆</div>
+                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-900/40">Acceso Oro</span>
+                    </div>
+                    <h3 class="text-2xl font-display font-extrabold text-white mb-2">Premium</h3>
+                    <div class="flex items-baseline gap-1.5 mb-6">
+                        <span class="text-4xl font-black text-white">$1,000</span>
+                        <span class="text-sm font-bold text-emerald-400">MXN</span>
+                    </div>
+                    <hr class="border-emerald-500/10 mb-6">
+                    <ul class="text-gray-300 text-sm space-y-4 mb-8">
+                        <li class="flex items-center gap-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <span><strong>120 Goles</strong> en monedero</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <span>Cubre hasta 104 partidos (Completo)</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                            <span>Pronóstico de Campeón</span>
+                        </li>
+                    </ul>
+                </div>
+                <button 
+                    onclick="requestPackage('Premium', '$1,000 MXN')"
+                    class="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-darkBg font-extrabold text-sm tracking-wide transition duration-300 shadow-[0_4px_15px_rgba(16,185,129,0.2)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.4)] active:scale-[0.98]"
+                >
+                    Solicitar Código
+                </button>
+            </div>
+            
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="w-full border-t border-gray-900 mt-auto py-10 bg-gray-950/60 text-center text-sm text-gray-500 relative z-10 backdrop-blur-sm">
+        <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="text-center md:text-left">
+                <p class="font-semibold text-gray-400">&copy; 2026 torreslab. Todos los derechos reservados.</p>
+                <p class="mt-1 text-xs text-gray-600">Aplicación estrictamente privada. El acceso está sujeto a los términos del administrador.</p>
+            </div>
+            <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 md:justify-end text-xs text-gray-500 font-medium">
+                <a href="#" class="hover:text-emerald-400 transition">Términos de Servicio</a>
+                <a href="#" class="hover:text-emerald-400 transition">Política de Privacidad</a>
+                <a href="https://wa.me/5215500000000?text=Hola%2C%20tengo%20una%20duda%20sobre%20la%20quiniela" id="footer-wa-link" target="_blank" class="hover:text-emerald-400 transition">Soporte</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Verification Success/Failure Modal (Overlay) -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-darkBg/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4 transition-all duration-300">
+        <div class="bg-gray-900 border border-gray-800 rounded-3xl p-6 md:p-8 max-w-md w-full text-center relative shadow-2xl animate-slide-up">
+            <div id="modal-icon-container" class="w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-6">
+                <!-- Icon will be injected here -->
+            </div>
+            <h3 id="modal-title" class="text-2xl font-display font-black text-white mb-2"></h3>
+            <p id="modal-body" class="text-gray-400 text-sm leading-relaxed mb-6"></p>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button onclick="closeModal()" class="flex-1 py-3 px-5 rounded-xl bg-gray-800 hover:bg-gray-700 text-white font-bold text-sm transition">
+                    Cerrar
+                </button>
+                <a id="modal-action-btn" target="_blank" class="flex-1 py-3 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-darkBg font-bold text-sm transition flex items-center justify-center gap-1.5">
+                    Contactar Soporte
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Client-side Logic Script -->
+    <script>
+        // CONFIGURACIÓN: Cambia este número por tu número de WhatsApp real (con código de país, ej. 5215500000000)
+        let adminPhone = "5215500000000";
+
+        // Initialize links with default phone
+        document.addEventListener('DOMContentLoaded', () => {
+            updateLinks();
+        });
+
+        function updateLinks() {
+            // Update the main WhatsApp links dynamically
+            const encodedMainMsg = encodeURIComponent("Hola, quiero comprar un código para la quiniela.");
+            const encodedSupportMsg = encodeURIComponent("Hola, tengo una duda sobre el acceso a la quiniela.");
+            
+            document.getElementById('main-wa-link').href = `https://wa.me/${adminPhone}?text=${encodedMainMsg}`;
+            document.getElementById('footer-wa-link').href = `https://wa.me/${adminPhone}?text=${encodedSupportMsg}`;
+        }
+
+        // WhatsApp redirect helper for package buttons
+        function requestPackage(packageName, price) {
+            const message = `Hola, quiero comprar un código de acceso para la Quiniela 2026.\n\nPaquete: ${packageName}\nPrecio: ${price}\n\nPor favor envíame las instrucciones de pago.`;
+            const encoded = encodeURIComponent(message);
+            window.open(`https://wa.me/${adminPhone}?text=${encoded}`, '_blank');
+        }
+
+        // Code verification submit handler
+        function handleCodeSubmit(event) {
+            event.preventDefault();
+            
+            const codeInput = document.getElementById('access-code');
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = document.getElementById('btn-text');
+            const btnSpinner = document.getElementById('btn-spinner');
+            const btnBall = document.getElementById('btn-ball');
+            const validationAlert = document.getElementById('validation-alert');
+
+            // Hide alert if open
+            validationAlert.classList.add('hidden');
+            
+            const rawCode = codeInput.value.trim().toUpperCase();
+            
+            if (!rawCode) return;
+
+            // Trigger button loading state
+            submitBtn.disabled = true;
+            btnText.textContent = "Verificando boleto...";
+            btnSpinner.classList.remove('hidden');
+            btnBall.classList.add('hidden');
+
+            // Simulate server authentication delay (1.5 seconds)
+            setTimeout(() => {
+                submitBtn.disabled = false;
+                btnText.textContent = "Entrar a la Cancha";
+                btnSpinner.classList.add('hidden');
+                btnBall.classList.remove('hidden');
+
+                // Check formatting rules (simulated validator)
+                // Let's accept if it looks like Q-26-PASS or Q26-PASS or Q-26-XXXX to simulate success
+                const cleanCode = rawCode.replace(/[^A-Z0-9]/g, '');
+                
+                if (cleanCode === 'Q26INVITADO' || cleanCode === 'Q26ADMIN') {
+                    // Show a simulated login success state
+                    showModal(
+                        true, 
+                        "¡Código Correcto!", 
+                        `El boleto "${rawCode}" está activo. Bienvenido a Quiniela26. Redirigiéndote a la cancha virtual...`,
+                        `https://wa.me/${adminPhone}?text=` + encodeURIComponent(`Hola, ingresé con el código ${rawCode}.`)
+                    );
+                } else {
+                    // Show validation alert inline
+                    validationAlert.classList.remove('hidden');
+                    document.getElementById('alert-message').textContent = `El boleto "${rawCode}" no ha sido activado por el administrador o no existe en nuestra base de datos para la Copa del Mundo 2026.`;
+                    
+                    // Also scroll down slightly to ensure the error alert is fully visible
+                    validationAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }, 1800);
+        }
+
+        // Custom Modal control
+        function showModal(isSuccess, title, message, waUrl) {
+            const backdrop = document.getElementById('modal-backdrop');
+            const iconContainer = document.getElementById('modal-icon-container');
+            const titleElem = document.getElementById('modal-title');
+            const bodyElem = document.getElementById('modal-body');
+            const actionBtn = document.getElementById('modal-action-btn');
+
+            titleElem.textContent = title;
+            bodyElem.textContent = message;
+
+            if (isSuccess) {
+                iconContainer.className = "w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-6 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400";
+                iconContainer.innerHTML = `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>`;
+                actionBtn.textContent = "Iniciar Sesión";
+                actionBtn.className = "flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-darkBg font-bold text-sm transition";
+                actionBtn.href = "#"; // Redirect to app in actual implementation
+                actionBtn.onclick = () => {
+                    alert("¡Redirección simulada a la App! Aquí se cargaría la interfaz de la quiniela activa.");
+                    closeModal();
+                };
+            } else {
+                iconContainer.className = "w-16 h-16 rounded-full mx-auto flex items-center justify-center mb-6 bg-red-500/10 border border-red-500/30 text-red-400";
+                iconContainer.innerHTML = `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+                actionBtn.textContent = "Solicitar Código";
+                actionBtn.className = "flex-1 py-3 px-5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-darkBg font-bold text-sm transition";
+                actionBtn.href = waUrl || `https://wa.me/${adminPhone}`;
+                actionBtn.onclick = null;
+            }
+
+            backdrop.classList.remove('hidden');
+            backdrop.classList.add('flex');
+        }
+
+        function closeModal() {
+            const backdrop = document.getElementById('modal-backdrop');
+            backdrop.classList.add('hidden');
+            backdrop.classList.remove('flex');
+        }
+    </script>
+</body>
+</html>
