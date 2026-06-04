@@ -14,8 +14,11 @@ const allowedOrigins = [
     "http://10.200.20.102:8080",
     "http://10.200.20.102",
     "http://10.200.20.102:3000",
+    "https://pixki.mx",
+    "https://quinielalanding.vercel.app",
+    process.env.FRONTEND_URL,
     `http://${process.env.FRONTEND_HOST || "localhost"}:8080`
-];
+].filter(Boolean);
 
 app.use(cors({
     origin: (origin, callback) => {
