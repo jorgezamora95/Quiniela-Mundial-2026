@@ -30,7 +30,7 @@ btnEntrar.addEventListener("click", async function () {
         localStorage.setItem("FotoUrl", data.usuario.fotoUrl || "");
 
         setTimeout(() => {
-            window.location.href = "index.html";
+            window.location.href = "dashboard.html";
         }, 700);
     } else {
         mensaje.textContent = data.message;
