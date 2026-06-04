@@ -138,8 +138,34 @@
         
         <!-- Subtitle -->
         <p class="text-sm sm:text-base md:text-xl text-gray-400 max-w-2xl mb-8 sm:mb-12 font-medium leading-relaxed">
-            Demuestra que sabes más que tus amigos, administra tus <strong class="text-white font-semibold">Goles</strong> con estrategia y llévate el acumulado. Elige tu paquete y solicita tu código de acceso.
+            Demuestra que sabes más que tus amigos, administra tus <strong class="text-white font-semibold">Goles</strong> con estrategia y llévate el acumulado. Solicita tu código de acceso para entrar a la cancha.
         </p>
+
+        <!-- Countdown Timer -->
+        <div class="mb-10 w-full max-w-lg mx-auto">
+            <p class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-3 flex items-center justify-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                La Gran Inauguración Inicia En:
+            </p>
+            <div class="grid grid-cols-4 gap-2 sm:gap-4 text-center">
+                <div class="glass-card rounded-2xl p-3 sm:p-4 min-w-[70px] shadow-lg">
+                    <span id="timer-days" class="block text-2xl sm:text-4xl font-display font-black text-white leading-none mb-1">00</span>
+                    <span class="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider">Días</span>
+                </div>
+                <div class="glass-card rounded-2xl p-3 sm:p-4 min-w-[70px] shadow-lg">
+                    <span id="timer-hours" class="block text-2xl sm:text-4xl font-display font-black text-white leading-none mb-1">00</span>
+                    <span class="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider">Horas</span>
+                </div>
+                <div class="glass-card rounded-2xl p-3 sm:p-4 min-w-[70px] shadow-lg">
+                    <span id="timer-minutes" class="block text-2xl sm:text-4xl font-display font-black text-white leading-none mb-1">00</span>
+                    <span class="text-[10px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider">Min</span>
+                </div>
+                <div class="glass-card rounded-2xl p-3 sm:p-4 min-w-[70px] shadow-lg">
+                    <span id="timer-seconds" class="block text-2xl sm:text-4xl font-display font-black text-white leading-none mb-1">00</span>
+                    <span class="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider">Seg</span>
+                </div>
+            </div>
+        </div>
 
         <!-- Access Code Input Block -->
         <div class="w-full max-w-xl mx-auto mb-6 p-1.5 rounded-2xl bg-gray-900/80 border border-gray-800/80 shadow-2xl backdrop-blur-md focus-within:border-emerald-500/50 transition-all duration-300" id="login">
@@ -180,7 +206,7 @@
         <!-- Request Link -->
         <div class="mt-6">
             <a 
-                href="https://wa.me/5215500000000?text=Hola%2C%20quiero%20comprar%20un%20c%C3%B3digo%20para%20la%20quiniela" 
+                href="https://wa.me/527224644605?text=Hola%2C%20quiero%20comprar%20un%20c%C3%B3digo%20para%20la%20quiniela" 
                 id="main-wa-link"
                 target="_blank" 
                 class="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-emerald-400 underline underline-offset-4 decoration-gray-600 hover:decoration-emerald-500/50 transition duration-300 font-semibold"
@@ -198,7 +224,7 @@
             <div class="p-6 rounded-2xl bg-gray-950/40 border border-gray-800/50 flex flex-col items-center text-center">
                 <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-display font-black text-xl mb-4 shadow-[0_0_15px_rgba(16,185,129,0.05)]">1</div>
                 <h3 class="text-lg font-bold text-white mb-2">Compra tu Código</h3>
-                <p class="text-gray-400 text-sm leading-relaxed">Elige uno de los paquetes debajo según tus aspiraciones. Recibirás un código de acceso único.</p>
+                <p class="text-gray-400 text-sm leading-relaxed">Adquiere tu boleto de entrada abajo. Recibirás un código de acceso único.</p>
             </div>
             <div class="p-6 rounded-2xl bg-gray-950/40 border border-gray-800/50 flex flex-col items-center text-center">
                 <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-display font-black text-xl mb-4 shadow-[0_0_15px_rgba(16,185,129,0.05)]">2</div>
@@ -216,95 +242,22 @@
     <!-- Pricing Section -->
     <section class="w-full max-w-6xl mx-auto px-4 py-16" id="packages">
         <div class="text-center mb-14">
-            <h2 class="text-3xl md:text-4xl font-display font-black text-white mb-3">Paquetes de Participación</h2>
-            <p class="text-gray-400 max-w-xl mx-auto text-sm md:text-base">Adquiere tus accesos hoy. Los goles en monedero te permiten realizar y potenciar tus predicciones a lo largo del torneo.</p>
+            <h2 class="text-3xl md:text-4xl font-display font-black text-white mb-3">Boleto de Participación</h2>
+            <p class="text-gray-400 max-w-xl mx-auto text-sm md:text-base">Adquiere tu código hoy. Los goles en monedero te permiten realizar y potenciar tus predicciones a lo largo de todo el torneo.</p>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-            
-            <!-- Basic Package -->
-            <div class="glass-card rounded-3xl p-6 sm:p-8 hover:border-gray-700/80 transition duration-300 flex flex-col justify-between group hover:-translate-y-1">
-                <div>
-                    <div class="flex justify-between items-start mb-6">
-                        <div class="text-4xl bg-gray-800/40 w-14 h-14 rounded-2xl flex items-center justify-center border border-gray-700/50 group-hover:scale-110 transition duration-300">🥉</div>
-                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest bg-gray-900 px-3 py-1 rounded-full border border-gray-850">Acceso Bronce</span>
-                    </div>
-                    <h3 class="text-2xl font-display font-extrabold text-white mb-2">Básico</h3>
-                    <div class="flex items-baseline gap-1.5 mb-6">
-                        <span class="text-4xl font-black text-white">$250</span>
-                        <span class="text-sm font-bold text-emerald-400">MXN</span>
-                    </div>
-                    <hr class="border-gray-800/60 mb-6">
-                    <ul class="text-gray-300 text-sm space-y-4 mb-8">
-                        <li class="flex items-center gap-3">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                            <span><strong>25 Goles</strong> en monedero</span>
-                        </li>
-                        <li class="flex items-center gap-3">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                            <span>Cubre hasta 25 partidos</span>
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-400/80">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                            <span>Pronóstico de Campeón</span>
-                        </li>
-                    </ul>
-                </div>
-                <button 
-                    onclick="requestPackage('Básico', '$250 MXN')"
-                    class="w-full py-4 px-6 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700/60 text-white font-bold text-sm tracking-wide transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] active:scale-[0.98]"
-                >
-                    Solicitar Código
-                </button>
-            </div>
-            
-            <!-- Standard / Popular Package -->
-            <div class="glass-card rounded-3xl p-6 sm:p-8 hover:border-gray-700/80 transition duration-300 flex flex-col justify-between group hover:-translate-y-1">
-                <div>
-                    <div class="flex justify-between items-start mb-6">
-                        <div class="text-4xl bg-gray-800/40 w-14 h-14 rounded-2xl flex items-center justify-center border border-gray-700/50 group-hover:scale-110 transition duration-300">🥈</div>
-                        <span class="text-xs font-bold text-gray-500 uppercase tracking-widest bg-gray-900 px-3 py-1 rounded-full border border-gray-850">Acceso Plata</span>
-                    </div>
-                    <h3 class="text-2xl font-display font-extrabold text-white mb-2">Estándar</h3>
-                    <div class="flex items-baseline gap-1.5 mb-6">
-                        <span class="text-4xl font-black text-white">$500</span>
-                        <span class="text-sm font-bold text-emerald-400">MXN</span>
-                    </div>
-                    <hr class="border-gray-800/60 mb-6">
-                    <ul class="text-gray-300 text-sm space-y-4 mb-8">
-                        <li class="flex items-center gap-3">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                            <span><strong>60 Goles</strong> en monedero</span>
-                        </li>
-                        <li class="flex items-center gap-3">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                            <span>Cubre hasta 60 partidos</span>
-                        </li>
-                        <li class="flex items-center gap-3">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
-                            <span>Pronóstico de Campeón</span>
-                        </li>
-                    </ul>
-                </div>
-                <button 
-                    onclick="requestPackage('Estándar', '$500 MXN')"
-                    class="w-full py-4 px-6 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700/60 text-white font-bold text-sm tracking-wide transition duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] active:scale-[0.98]"
-                >
-                    Solicitar Código
-                </button>
-            </div>
-            
-            <!-- Premium Package -->
-            <div class="glass-card-accent rounded-3xl p-6 sm:p-8 transition duration-300 relative flex flex-col justify-between shadow-[0_15px_30px_rgba(16,185,129,0.08)] transform md:-translate-y-4 hover:-translate-y-5 group">
+        <div class="max-w-md mx-auto w-full">
+            <!-- Unique Access Card -->
+            <div class="glass-card-accent rounded-3xl p-6 sm:p-8 transition duration-300 relative flex flex-col justify-between shadow-[0_15px_30px_rgba(16,185,129,0.08)] transform hover:-translate-y-1 group">
                 <div class="absolute -top-4 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-darkBg text-xs font-black px-4 py-1.5 rounded-full uppercase tracking-wider shadow-lg shadow-emerald-500/25">
-                    Recomendado
+                    Pase Oficial
                 </div>
                 <div>
                     <div class="flex justify-between items-start mb-6 mt-2">
                         <div class="text-4xl bg-emerald-500/10 w-14 h-14 rounded-2xl flex items-center justify-center border border-emerald-500/30 group-hover:scale-110 transition duration-300">🏆</div>
-                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-900/40">Acceso Oro</span>
+                        <span class="text-xs font-bold text-emerald-400 uppercase tracking-widest bg-emerald-950/40 px-3 py-1 rounded-full border border-emerald-900/40">Acceso Completo</span>
                     </div>
-                    <h3 class="text-2xl font-display font-extrabold text-white mb-2">Premium</h3>
+                    <h3 class="text-2xl font-display font-extrabold text-white mb-2">Boleto de Entrada</h3>
                     <div class="flex items-baseline gap-1.5 mb-6">
                         <span class="text-4xl font-black text-white">$1,000</span>
                         <span class="text-sm font-bold text-emerald-400">MXN</span>
@@ -326,13 +279,12 @@
                     </ul>
                 </div>
                 <button 
-                    onclick="requestPackage('Premium', '$1,000 MXN')"
+                    onclick="requestPackage('Acceso Único', '$1,000 MXN')"
                     class="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-darkBg font-extrabold text-sm tracking-wide transition duration-300 shadow-[0_4px_15px_rgba(16,185,129,0.2)] hover:shadow-[0_4px_20px_rgba(16,185,129,0.4)] active:scale-[0.98]"
                 >
                     Solicitar Código
                 </button>
             </div>
-            
         </div>
     </section>
 
@@ -346,7 +298,7 @@
             <div class="flex flex-wrap justify-center gap-x-6 gap-y-2 md:justify-end text-xs text-gray-500 font-medium">
                 <a href="#" class="hover:text-emerald-400 transition">Términos de Servicio</a>
                 <a href="#" class="hover:text-emerald-400 transition">Política de Privacidad</a>
-                <a href="https://wa.me/5215500000000?text=Hola%2C%20tengo%20una%20duda%20sobre%20la%20quiniela" id="footer-wa-link" target="_blank" class="hover:text-emerald-400 transition">Soporte</a>
+                <a href="https://wa.me/527224644605?text=Hola%2C%20tengo%20una%20duda%20sobre%20la%20quiniela" id="footer-wa-link" target="_blank" class="hover:text-emerald-400 transition">Soporte</a>
             </div>
         </div>
     </footer>
@@ -373,11 +325,39 @@
     <!-- Client-side Logic Script -->
     <script>
         // CONFIGURACIÓN: Cambia este número por tu número de WhatsApp real (con código de país, ej. 5215500000000)
-        let adminPhone = "5215500000000";
+        let adminPhone = "527224644605";
 
-        // Initialize links with default phone
+        // Countdown Timer Logic (Inauguración: 11 de junio, 2026 12:00 PM CST)
+        const targetDate = new Date("2026-06-11T12:00:00-06:00").getTime();
+
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const difference = targetDate - now;
+
+            if (difference < 0) {
+                document.getElementById('timer-days').textContent = "00";
+                document.getElementById('timer-hours').textContent = "00";
+                document.getElementById('timer-minutes').textContent = "00";
+                document.getElementById('timer-seconds').textContent = "00";
+                return;
+            }
+
+            const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+            document.getElementById('timer-days').textContent = days.toString().padStart(2, '0');
+            document.getElementById('timer-hours').textContent = hours.toString().padStart(2, '0');
+            document.getElementById('timer-minutes').textContent = minutes.toString().padStart(2, '0');
+            document.getElementById('timer-seconds').textContent = seconds.toString().padStart(2, '0');
+        }
+
+        // Initialize links and timer with default settings
         document.addEventListener('DOMContentLoaded', () => {
             updateLinks();
+            updateCountdown();
+            setInterval(updateCountdown, 1000);
         });
 
         function updateLinks() {
@@ -427,7 +407,6 @@
                 btnSpinner.classList.add('hidden');
                 btnBall.classList.remove('hidden');
 
-                // Acepta cualquier código de longitud mayor o igual a 4 para llevarlo al registro
                 const cleanCode = rawCode.replace(/[^A-Z0-9-]/g, '');
                 
                 if (cleanCode.length >= 4) {
