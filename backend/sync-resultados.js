@@ -91,7 +91,7 @@ async function sincronizarResultados() {
 
 // ─── CRON JOB: cada 5 minutos ─────────────────────────────────────────────────
 // Solo entre las 12:00 y las 23:59 hora México
-cron.schedule('*/15 12-23 * * *', sincronizarResultados); // cada 15 min solo en horario de partidos
+cron.schedule('*/15 12-15 * * *', sincronizarResultados); // cada 15 min solo en horario de partidos
 
 // También ejecutar al arrancar
 sincronizarResultados();
