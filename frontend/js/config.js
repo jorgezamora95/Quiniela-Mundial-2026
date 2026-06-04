@@ -1,1 +1,1 @@
-const API_URL = "http://10.200.20.102:3000";
+const API_URL = "https://quiniela-mundial-2026-3y0x.onrender.com";
