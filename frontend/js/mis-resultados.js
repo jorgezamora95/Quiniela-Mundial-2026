@@ -14,7 +14,7 @@ async function cargarMecanicaResultados() {
         const responsePartidos = await fetch("./data/partidos.json");
         const partidosJSON = await responsePartidos.json();
 
-        const responseDB = await fetch(`http://localhost:3000/api/mis-resultados/${idUsuario}`);
+        const responseDB = await fetch(`${API_URL}/api/mis-resultados/${idUsuario}`);
         const data = await responseDB.json();
 
         if (!data.ok) return;

@@ -1,14 +1,11 @@
-.main-content{
-    margin-left: 19rem;
-    min-height: 100vh;
-    padding: 2rem;
-    }
+/* opciones.css — NO redefinir .main-content ni .sidebar, vienen de index.css */
 
 .opciones-layout{
     display: grid;
     grid-template-columns: 1fr 440px;
-    gap: 4rem;
-    justify-content: center;
+    gap: 3rem;
+    max-width: 1000px;
+    align-items: start;
 }
 
 .eyebrow{
@@ -52,45 +49,28 @@
     max-width: 560px;
     background: rgba(7,17,31,.65);
     border: 1px solid rgba(255,255,255,.08);
-    padding:1.5rem;
-    border-radius:20px;
+    padding: 1.5rem;
+    border-radius: 20px;
     margin-bottom: 2rem;
 }
 
-.tips-card h3{
-    margin: 0 0 .8rem;
-    color: white;
-}
-
-.tips-card ul{
-    margin: 0;
-    padding-left: 1.2rem;
-    color: #b8c2d6;
-    line-height: 1.7;
-}
-
-.tips-card li{
-    margin-bottom:.8rem;
-}
+.tips-card h3{ margin: 0 0 .8rem; color: white; }
+.tips-card ul{ margin: 0; padding-left: 1.2rem; color: #b8c2d6; line-height: 1.7; }
+.tips-card li{ margin-bottom: .8rem; }
 
 .opciones-card{
     background: rgba(7,17,31,.88);
     border: 1px solid rgba(255,255,255,.10);
-    border-radius: 22px;
+    border-radius: 15px;
     padding: 2rem;
     box-shadow: 0 25px 80px rgba(0,0,0,.35);
     backdrop-filter: blur(12px);
-
-    /* 📐 LAS ENMIENDAS DE ANCHO Y CENTRADO DE LA TARJETA */
-    max-width: 440px;      /* Establece un ancho máximo compacto idéntico al Login */
-    width: 100%;           /* Permite que responda de forma fluida */
-
+    max-width: 380px;
+    width: 100%;
+    overflow: hidden;
 }
 
-.profile-preview-zone{
-    text-align: center;
-    margin-bottom: 1.8rem;
-}
+.profile-preview-zone{ text-align: center; margin-bottom: 1.8rem; }
 
 .avatar-ring{
     width: 200px;
@@ -100,7 +80,6 @@
     padding: 4px;
     background: linear-gradient(135deg,#2ecc71,#0b1c28,#2ecc71);
     box-shadow: 0 0 25px rgba(46,204,113,.25);
-
 }
 
 .avatar-ring img{
@@ -111,10 +90,7 @@
     background: #05101a;
 }
 
-.profile-preview-zone h3{
-    margin: 1rem 0 .45rem;
-    font-size: 1.35rem;
-}
+.profile-preview-zone h3{ margin: 1rem 0 .45rem; font-size: 1.35rem; }
 
 .profile-badge{
     display: inline-block;
@@ -126,11 +102,7 @@
     font-weight: bold;
 }
 
-.form-opciones{
-    display: flex;
-    flex-direction: column;
-    gap: 1.2rem;
-}
+.form-opciones{ display: flex; flex-direction: column; gap: 1.2rem; }
 
 .input-group label{
     display: flex;
@@ -142,9 +114,7 @@
     margin-bottom: .5rem;
 }
 
-.input-group label i{
-    color: #2ecc71;
-}
+.input-group label i{ color: #2ecc71; }
 
 .input-group input{
     width: 100%;
@@ -156,6 +126,8 @@
     outline: none;
     font-size: .95rem;
     transition: .25s ease;
+    box-sizing: border-box;;
+    min-width: 0;
 }
 
 .input-group input:focus{
@@ -193,34 +165,24 @@
     font-size: .9rem;
 }
 
-.mensaje.success{
-    color: #2ecc71;
-}
+.mensaje.success{ color: #2ecc71; }
+.mensaje.error{ color: #ff6b6b; }
 
-.mensaje.error{
-    color: #ff6b6b;
-}
-
+/* ── RESPONSIVE ─────────────────────────────── */
 @media(max-width: 1000px){
     .opciones-layout{
-    display: grid;
-    grid-template-columns: 1fr 440px;
         grid-template-columns: 1fr;
-        align-items: start;
     }
-
     .opciones-card{
-        max-width: 440px;
+        max-width: 84%;
     }
 }
 
 @media(max-width: 760px){
-    .main-content{
-        margin-left: 0;
-        padding: 1rem;
-    }
-
     .opciones-info h2{
-        font-size: 3rem;
+        font-size: 2.5rem;
+    }
+    .opciones-layout{
+        gap: 1.5rem;
     }
 }

@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function cargarTablaPosiciones() {
     try {
-        const response = await fetch("http://localhost:3000/api/tabla-general");
+        const response = await fetch(`${API_URL}/api/tabla-general`);
         const data = await response.json();
 
         if (!data.ok) return;

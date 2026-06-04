@@ -46,6 +46,7 @@ function inicializarSidebarGlobal() {
 
             menuPrincipal.appendChild(liAdmin);
         }
+    
     }
 
     const btnLogout = document.getElementById("btnCerrarSesion");
@@ -57,4 +58,62 @@ function inicializarSidebarGlobal() {
             window.location.href = "login.html";
         });
     }
+
+        const btnHamburger = document.getElementById("btnHamburger");
+    const sidebar      = document.getElementById("sidebar");
+    const overlay      = document.getElementById("sidebarOverlay");
+
+    if (btnHamburger && sidebar && overlay) {
+        btnHamburger.addEventListener("click", () => {
+            const abierto = sidebar.classList.contains("sidebar--open");
+            if (abierto) {
+                sidebar.classList.remove("sidebar--open");
+                overlay.classList.remove("sidebar-overlay--visible");
+                btnHamburger.innerHTML = '<i class="fa-solid fa-bars"></i>';
+            } else {
+                sidebar.classList.add("sidebar--open");
+                overlay.classList.add("sidebar-overlay--visible");
+                btnHamburger.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            }
+        });
+
+        overlay.addEventListener("click", () => {
+            sidebar.classList.remove("sidebar--open");
+            overlay.classList.remove("sidebar-overlay--visible");
+            btnHamburger.innerHTML = '<i class="fa-solid fa-bars"></i>';
+        });
+
+        document.querySelectorAll(".menu-link").forEach(link => {
+            link.addEventListener("click", () => {
+                sidebar.classList.remove("sidebar--open");
+                overlay.classList.remove("sidebar-overlay--visible");
+                btnHamburger.innerHTML = '<i class="fa-solid fa-bars"></i>';
+            });
+        });
+    }
+
 }
+
+// ─── AUTO LOGOUT por inactividad (10 min) ────────────────────────────────────
+(function iniciarTimerInactividad() {
+    const MINUTOS = 10;
+    const TIEMPO  = MINUTOS * 60 * 1000;
+    let timer;
+
+    function resetTimer() {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            alert("⏱️ Sesión cerrada por inactividad.");
+            localStorage.clear();
+            window.location.href = "login.html";
+        }, TIEMPO);
+    }
+
+    // Resetear el timer con cualquier interacción del usuario
+    ["mousemove", "keydown", "click", "scroll", "touchstart"].forEach(evento => {
+        document.addEventListener(evento, resetTimer, { passive: true });
+    });
+
+    // Arrancar el timer al cargar
+    resetTimer();
+})();

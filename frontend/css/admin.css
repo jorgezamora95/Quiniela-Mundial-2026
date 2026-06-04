@@ -15,6 +15,13 @@ body{
    y que sus estilos principales están en tu CSS de index/sidebar.
 */
 
+.main-content{
+    margin-left: 17rem;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 1.5rem;
+}
 /* Estilo base para el botón Registrar del administrador */
 .btn-registrar-fila {
     background: rgba(46, 204, 113, 0.12);
@@ -41,15 +48,6 @@ body{
 /* Efecto cuando el administrador le da clic (Feedback táctil) */
 .btn-registrar-fila:active {
     transform: translateY(0) scale(0.98); /* Se hunde ligeramente */
-}
-
-
-.main-content{
-    margin-left: 17rem;
-    padding: 2rem;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    gap: 1.5rem;
 }
 
 .page-header{

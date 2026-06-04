@@ -114,7 +114,7 @@ function configurarFormularioPerfil() {
             btnGuardar.disabled = true;
             btnGuardar.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`;
 
-            const response = await fetch("http://localhost:3000/api/actualizar-perfil", {
+            const response = await fetch(`${API_URL}/api/actualizar-perfil`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

@@ -4,105 +4,148 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reglamento</title>
-
+    <link rel="stylesheet" href="./css/index.css">
     <link rel="stylesheet" href="./css/reglas.css">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
-
     <div id="sidebar-container"></div>
     <main class="main-content">
 
         <div class="page-header">
             <div>
                 <h2>Reglamento</h2>
-                <p>Consulta las reglas oficiales de la Quiniela Mundial 2026</p>
+                <p>Reglas oficiales de la Quiniela Mundial 2026</p>
             </div>
         </div>
 
         <section class="rules-container">
 
-            <div class="rule-card">
+            <div class="rule-card rule-card--highlight">
                 <i class="fa-solid fa-futbol"></i>
-                <h3>Participación</h3>
-                <p>
-                    Cada participante deberá registrar sus pronósticos antes del inicio de cada partido.
-                </p>
-                <p>
-                    Costo quiniela: $1,000
+                <h3>1. Participación</h3>
+                <p>Todos los participantes compiten bajo igualdad de condiciones en una única tabla general.</p>
+                <ul>
+                    <li>💰 <strong>Costo de inscripción:</strong> $1,000 MXN</li>
+                    <li>🏟️ <strong>Partidos disponibles:</strong> 104 (torneo completo)</li>
+                    <li>🔑 <strong>Acceso:</strong> El administrador activa tu cuenta una vez confirmado el pago.</li>
+                </ul>
+                <p style="color:#b8c2d6; font-size:.85rem; margin-top:.8rem;">
+                    Sin activación del administrador no podrás registrar pronósticos.
                 </p>
             </div>
 
             <div class="rule-card">
                 <i class="fa-solid fa-clock"></i>
-                <h3>Cierre de Pronósticos</h3>
-                <p>
-                    Los pronósticos se bloquearán automáticamente al comenzar cada partido.
-                </p>
-            </div>
-
-            <div class="rule-card">
-                <i class="fa-solid fa-bullseye"></i>
-                <h3>Sistema de Puntos</h3>
-
+                <h3>2. Cierre de Pronósticos</h3>
+                <p>Los pronósticos se bloquean automáticamente al momento en que inicia cada partido.</p>
                 <ul>
-                    <li>Marcador exacto → 5 puntos</li>
-                    <li>Ganador correcto → 3 puntos</li>
-                    <li>Empate correcto → 3 puntos</li>
-                    <li>Pronóstico incorrecto → 0 puntos</li>
+                    <li>🔒 Una vez iniciado el partido no se pueden registrar ni modificar pronósticos.</li>
+                    <li>📶 Es responsabilidad del participante registrar su pronóstico antes del inicio.</li>
+                    <li>⚙️ El administrador no puede ingresar o modificar pronósticos manualmente.</li>
                 </ul>
             </div>
 
             <div class="rule-card">
-                <i class="fa-solid fa-ranking-star"></i>
-                <h3>Tabla General</h3>
+                <i class="fa-solid fa-pen-to-square"></i>
+                <h3>3. Modificaciones</h3>
+                <p>Cada partido permite un máximo de <strong>3 guardados o modificaciones</strong> antes de que inicie.</p>
+                <ul>
+                    <li>Al realizar el <strong>segundo guardado</strong> se te avisará que te queda 1 cambio.</li>
+                    <li>Al realizar el <strong>tercer guardado</strong> el pronóstico quedará sellado permanentemente.</li>
+                    <li>Partidos no pronosticados suman <strong>0 puntos</strong>.</li>
+                </ul>
+            </div>
 
-                <p>
-                    La clasificación se actualizará automáticamente después de cada partido.
+            <div class="rule-card">
+                <i class="fa-solid fa-bullseye"></i>
+                <h3>4. Sistema de Puntos</h3>
+                <ul>
+                    <li>🎯 <strong>Marcador exacto → 5 puntos</strong><br>
+                        <small style="color:#b8c2d6;">Ejemplo: pronosticaste 2-1 y el resultado fue 2-1</small></li>
+                    <li>✅ <strong>Ganador correcto → 3 puntos</strong><br>
+                        <small style="color:#b8c2d6;">Ejemplo: pronosticaste 2-0 y el resultado fue 3-1</small></li>
+                    <li>🤝 <strong>Empate correcto sin marcador exacto → 1 punto</strong><br>
+                        <small style="color:#b8c2d6;">Ejemplo: pronosticaste 1-1 y el resultado fue 2-2</small></li>
+                    <li>❌ <strong>Pronóstico incorrecto → 0 puntos</strong></li>
+                </ul>
+                <p style="color:#f1c40f; font-size:.85rem; margin-top:.8rem;">
+                    ⚠️ Solo se considera el resultado al término del <strong>tiempo regular (90 min + compensación)</strong>. No se cuentan tiempos extra ni penales.
                 </p>
             </div>
 
             <div class="rule-card">
                 <i class="fa-solid fa-trophy"></i>
-                <h3>Desempates</h3>
+                <h3>5. Pronóstico del Campeón</h3>
+                <p>Cada participante puede registrar su selección campeona y el marcador de la Gran Final.</p>
+                <ul>
+                    <li>🥇 <strong>Campeón correcto → 15 puntos</strong></li>
+                    <li>🎯 <strong>Campeón + marcador exacto → 25 puntos</strong> (no acumulables)</li>
+                </ul>
+                <p style="color:#e74c3c; font-size:.85rem; margin-top:.8rem;">
+                    🔒 Se bloquea permanentemente al iniciar el partido inaugural del Mundial. Sin excepciones.
+                </p>
+            </div>
 
-                <ol>
-                    <li>Mayor cantidad de puntos.</li>
-                    <li>Más marcadores exactos.</li>
-                    <li>Más ganadores acertados.</li>
-                    <li>Primer registro realizado.</li>
-                </ol>
+            <div class="rule-card">
+                <i class="fa-solid fa-ranking-star"></i>
+                <h3>6. Tabla General y Desempates</h3>
+                <p>La clasificación se actualiza automáticamente después de que el admin valida cada resultado.</p>
+                <p style="margin-top:.8rem;"><strong>En caso de empate en puntos — Bolsas Combinadas:</strong></p>
+                <ul>
+                    <li>🥇 <strong>Empate en 1°:</strong> Se suman 50%+30%=80%, se divide entre los empatados.</li>
+                    <li>🥈 <strong>Empate en 2°:</strong> El 1° cobra 50%. Se suman 30%+20%=50%, se divide entre los empatados.</li>
+                    <li>🥉 <strong>Empate en 3°:</strong> El 20% se divide entre los empatados.</li>
+                </ul>
+            </div>
+
+            <div class="rule-card">
+                <i class="fa-solid fa-crown"></i>
+                <h3>7. Distribución de la Bolsa</h3>
+                <ul>
+                    <li>💰 <strong>85%</strong> — Bolsa de premios acumulada</li>
+                    <li>⚙️ <strong>15%</strong> — Administración, infraestructura y licenciamiento</li>
+                </ul>
+                <p style="margin-top:.8rem;"><strong>Premiación:</strong></p>
+                <ul>
+                    <li>🥇 Primer lugar: <strong>50%</strong> de la bolsa</li>
+                    <li>🥈 Segundo lugar: <strong>30%</strong> de la bolsa</li>
+                    <li>🥉 Tercer lugar: <strong>20%</strong> de la bolsa</li>
+                </ul>
+            </div>
+
+            <div class="rule-card">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <h3>8. Casos Especiales</h3>
+                <ul>
+                    <li>⚠️ <strong>Partido cancelado:</strong> Se declara Nulo. Nadie suma puntos por ese partido.</li>
+                    <li>🏛️ <strong>Modificaciones del VAR:</strong> Los puntos se calculan sobre el resultado al silbatazo final. Resoluciones posteriores de la FIFA no alteran el puntaje.</li>
+                    <li>📶 <strong>Fallas técnicas:</strong> Es responsabilidad del participante tener conexión estable y registrar sus pronósticos a tiempo.</li>
+                </ul>
             </div>
 
             <div class="rule-card">
                 <i class="fa-solid fa-ban"></i>
-                <h3>Restricciones</h3>
-
+                <h3>9. Restricciones</h3>
                 <ul>
-                    <li>No se permiten modificaciones después del cierre.</li>
-                    <li>Las decisiones del administrador son definitivas.</li>
-                    <li>Cualquier intento de manipulación será descalificado.</li>
-                </ul>
-            </div>
-            <div class="rule-card">
-                <i class="fa-solid fa-crown"></i>
-                <h3>Premio</h3>
-
-                <ul>
-                    <li>🥇 Primer lugar: 50% del acumulado</li>
-                    <li>🥈 Segundo lugar: 30% del acumulado</li>
-                    <li>🥉 Tercer lugar: 20% del acumulado</li>
+                    <li>🔐 Aplicación privada — acceso únicamente mediante código de invitación.</li>
+                    <li>🚫 <strong>Tolerancia cero</strong> a manipulación del sistema, cuentas duplicadas o explotación de errores. Descalificación inmediata y permanente sin reembolso.</li>
+                    <li>✅ Las decisiones del administrador son definitivas e inapelables.</li>
                 </ul>
             </div>
 
         </section>
 
-    </main>
+        <div style="text-align:center; padding:2rem 0; color:#b8c2d6; font-size:.85rem;">
+            Al activar tu código de invitación aceptas estos términos de forma definitiva e inapelable.<br>
+            <strong style="color:#2ecc71;">Quiniela Mundial 2026 - Powered by ZamTech Data Engine</strong>
+        </div>
 
+    </main>
+    <script src="./js/config.js"></script>
     <script src="./js/layout.js"></script>
     <script src="./js/sesion.js"></script>
     <script src="./js/app.js"></script>
-
 </body>
 </html>

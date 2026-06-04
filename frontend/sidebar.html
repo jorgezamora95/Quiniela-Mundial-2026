@@ -1,92 +1,77 @@
-<!DOCTYPE html>
-<html lang="es">
+<!-- BOTÓN HAMBURGUESA (solo visible en móvil) -->
+<button class="hamburger-btn" id="btnHamburger" aria-label="Abrir menú">
+    <i class="fa-solid fa-bars"></i>
+</button>
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="./css/index.css">
-    <link rel="preconnect" href="https://googleapis.com">
-    <link rel="preconnect" href="https://gstatic.com" crossorigin>
-    <link href="https://googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cloudflare.com">
-    <link href="https://googleapis.com/css2?family=Poppins:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
-    <title>Quiniela Mundial 2026</title>
-</head>
+<!-- OVERLAY oscuro al abrir el menú en móvil -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-<body>
-    <aside class="sidebar">
-        <!-- Logotipo Oficial -->
-        <div class="brand">
-            <img src="./img/2026_FIFA_World_Cup_Logo_29.png" alt="logo">
-            <h1>QUINIELA <span>MUNDIAL 2026</span></h1>
+<aside class="sidebar" id="sidebar">
+    <div class="brand">
+        <img src="./img/2026_FIFA_World_Cup_Logo_29.png" alt="logo">
+        <h1>QUINIELA <span>MUNDIAL 2026</span></h1>
+    </div>
+
+    <div class="menu-container">
+        <ul class="menu" id="menuPrincipal">
+            <li class="menu-item menu-item-static">
+                <a href="dashboard.html" class="menu-link">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="menu-item menu-item-static">
+                <a href="mi-quiniela.html" class="menu-link">
+                    <i class="fa-solid fa-clipboard-list"></i>
+                    <span>Mi Quiniela</span>
+                </a>
+            </li>
+            <li class="menu-item menu-item-static">
+                <a href="tabla-general.html" class="menu-link">
+                    <i class="fa-solid fa-trophy"></i>
+                    <span>Tabla General</span>
+                </a>
+            </li>
+            <li class="menu-item menu-item-static">
+                <a href="mis-resultados.html" class="menu-link">
+                    <i class="fa-solid fa-chart-simple"></i>
+                    <span>Mis Resultados</span>
+                </a>
+            </li>
+            <li class="menu-item menu-item-static">
+                <a href="reglas.html" class="menu-link">
+                    <i class="fa-solid fa-file-lines"></i>
+                    <span>Reglamento</span>
+                </a>
+            </li>
+            <li class="menu-item menu-item-static">
+                <a href="opciones.html" class="menu-link">
+                    <i class="fa-brands fa-jedi-order"></i>
+                    <span>Opciones</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="footer">
+        <div class="user">
+            <div class="user-img">
+                <img id="imgAvatarSidebar" src="./img/user-icon.png" alt="Avatar">
+            </div>
+            <div class="user-data">
+                <h3 id="txtNombreUsuarioSidebar">Cargando...</h3>
+            </div>
+            <div class="user-icon">
+                <a href="#" id="btnCerrarSesion" class="logout-btn" title="Cerrar sesión">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
         </div>
-
-        <!-- Menú de Navegación Central -->
-        <div class="menu-container">
-            <ul class="menu" id="menuPrincipal">
-                <li class="menu-item menu-item-static">
-                    <a href="index.html" class="menu-link">
-                        <i class="fa-solid fa-house"></i>
-                        <span>Dashboard</span>
-                    </a>
-                </li>
-                <li class="menu-item menu-item-static">
-                    <a href="mi-quiniela.html" class="menu-link">
-                        <i class="fa-solid fa-clipboard-list"></i>
-                        <span>Mi Quiniela</span>
-                    </a>
-                </li>
-                <li class="menu-item menu-item-static">
-                    <a href="tabla-general.html" class="menu-link">
-                        <i class="fa-solid fa-trophy"></i>
-                        <span>Tabla General</span>
-                    </a>
-                </li>
-                <li class="menu-item menu-item-static">
-                    <a href="mis-resultados.html" class="menu-link">
-                        <i class="fa-solid fa-chart-simple"></i>
-                        <span>Mis Resultados</span>
-                    </a>
-                </li>
-                <li class="menu-item menu-item-static">
-                    <a href="reglas.html" class="menu-link">
-                        <i class="fa-solid fa-file-lines"></i>
-                        <span>Reglamento</span>
-                    </a>
-                </li>
-                <li class="menu-item menu-item-static">
-                    <a href="opciones.html" class="menu-link">
-                        <i class="fa-brands fa-jedi-order"></i>
-                        <span>Opciones</span>
-                    </a>
-                </li>
-            </ul>
+        <div style="padding:.8rem 1rem; border-top:1px solid rgba(255,255,255,.06); margin-top:auto;">
+            <p style="margin:0; font-size:.65rem; color:rgba(255,255,255,.25); text-align:center; line-height:1.5;">
+                © 2026 Quiniela Mundial<br>
+                <span style="color:rgba(46,204,113,.4);">Powered by ZamTech Data Engine</span>
+            </p>
         </div>
-
-        <!-- Sección Inferior: Opciones y Usuario -->
-        <div class="footer">
-            <!-- Bloque de Usuario Organizado Correctamente -->
-            <div class="user">
-                <div class="user-img">
-                    <img id="imgAvatarSidebar" src="./img/user-icon.png" alt="Avatar">
-                </div>
-                <div class="user-data">
-                    <h3 id="txtNombreUsuarioSidebar">Cargando...</h3>
-                </div>
-                <div class="user-icon">
-                    <a href="#" id="btnCerrarSesion" class="logout-btn" title="Cerrar sesión">
-                        <i class="fa-solid fa-right-from-bracket"></i>
-                    </a>
-                </div>
-            </div> <!-- Cierre correcto de la clase .user -->
-
-        </div>
-    </aside>
-
-    <script src="./js/app.js"></script>
-    <script src="./js/layout.js"></script>
-       
-
-</body>
-
-</html>
+    </div>
+</aside>
