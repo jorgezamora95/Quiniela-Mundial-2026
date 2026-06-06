@@ -757,4 +757,41 @@ router.post('/admin/rechazar-pendiente', async (req, res) => {
     }
 });
 
+// ─── ADMIN: EXPORTAR PRONÓSTICOS ─────────────────────────────────────────────
+router.get('/admin/exportar-pronosticos', async (req, res) => {
+    try {
+        const result = await query(`
+            SELECT 
+                u.nombre AS "Usuario",
+                u.correo AS "Correo",
+                p.partido_id AS "Partido #",
+                p.goles_local AS "Pronóstico Local",
+                p.goles_visitante AS "Pronóstico Visitante",
+                COALESCE(CAST(r.goles_local AS TEXT), '-') AS "Resultado Local",
+                COALESCE(CAST(r.goles_visitante AS TEXT), '-') AS "Resultado Visitante",
+                pd.modificaciones_usadas AS "Modificaciones",
+                CASE
+                    WHEN r.goles_local IS NULL THEN 'Pendiente'
+                    WHEN p.goles_local = r.goles_local AND p.goles_visitante = r.goles_visitante THEN '5 — Exacto'
+                    WHEN r.goles_local = r.goles_visitante AND p.goles_local = p.goles_visitante THEN '1 — Empate correcto'
+                    WHEN (p.goles_local > p.goles_visitante AND r.goles_local > r.goles_visitante)
+                      OR (p.goles_local < p.goles_visitante AND r.goles_local < r.goles_visitante) THEN '3 — Ganador correcto'
+                    ELSE '0 — Falló'
+                END AS "Puntos",
+                COALESCE(pt.puntos_totales, 0) AS "Puntos Totales"
+            FROM pronosticos p
+            INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
+            LEFT JOIN resultados_reales r ON p.partido_id = r.partido_id
+            LEFT JOIN partidos_desbloqueados pd ON pd.id_usuario = p.id_usuario AND pd.partido_id = p.partido_id
+            LEFT JOIN puntajes pt ON pt.id_usuario = u.id_usuario
+            WHERE u.activo = TRUE
+            ORDER BY u.nombre ASC, p.partido_id ASC
+        `);
+        return res.json({ ok: true, pronosticos: result.rows });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error al exportar.' });
+    }
+});
+
 module.exports = router;

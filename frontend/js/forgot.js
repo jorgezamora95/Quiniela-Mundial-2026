@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (mensaje) mensaje.textContent = "";
 
             // 4. Petición HTTP POST hacia tu endpoint seguro de Express
-            const response = await fetch(`${API_URL}/restablecer-password`, {
+            const response = await fetch(`${API_URL}/api/restablecer-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ 

@@ -525,3 +525,34 @@ function obtenerEmojiBandera(codigoPais) {
     const [a, b] = codigo.split("");
     return String.fromCodePoint(0x1F1E6 + a.charCodeAt(0) - 65, 0x1F1E6 + b.charCodeAt(0) - 65);
 }
+
+
+document.getElementById("btnExportarPronosticos")?.addEventListener("click", async () => {
+    try {
+        // Jalar todos los pronósticos del backend
+        const res  = await fetch(`${API_URL}/api/admin/exportar-pronosticos`);
+        const data = await res.json();
+        if (!data.ok) return;
+
+        // Cargar SheetJS desde CDN
+        if (!window.XLSX) {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement("script");
+                script.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        // Crear el Excel
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(data.pronosticos);
+        XLSX.utils.book_append_sheet(wb, ws, "Pronósticos");
+        XLSX.writeFile(wb, `Quiniela_Mundial_2026_${new Date().toLocaleDateString('es-MX')}.xlsx`);
+
+    } catch(e) {
+        console.error(e);
+        alert("Error al exportar.");
+    }
+});
