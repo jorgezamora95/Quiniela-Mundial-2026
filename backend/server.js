@@ -100,11 +100,13 @@ app.post("/api/login", async (req, res) => {
         if (!passwordCorrecta)
             return res.status(401).json({ ok: false, message: "Correo o contraseña incorrectos" });
 
+        const crypto = require('crypto');
+        const secret = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
+        const token = crypto.createHmac('sha256', secret).update(String(usuario.id_usuario)).digest('hex');
+
         let adminToken = null;
         if (usuario.id_usuario === 1) {
-            const crypto = require('crypto');
-            const secret = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
-            adminToken = crypto.createHmac('sha256', secret).update(String(usuario.id_usuario)).digest('hex');
+            adminToken = token;
         }
 
         res.json({
@@ -116,6 +118,7 @@ app.post("/api/login", async (req, res) => {
                 correo:    usuario.correo,
                 fotoUrl:   usuario.foto_url
             },
+            token,
             adminToken
         });
 
@@ -138,8 +141,32 @@ const restablecerSchema = z.object({
     nuevaPassword:      z.string().min(6)
 });
 
+function validarTokenUsuario(req, res, next) {
+    let idUsuario = req.params.idUsuario || req.body.idUsuario || req.query.idUsuario;
+    if (!idUsuario) {
+        return res.status(400).json({ ok: false, message: 'Falta ID de usuario para validación.' });
+    }
+
+    idUsuario = parseInt(idUsuario);
+
+    const token = req.headers['x-user-token'];
+    if (!token) {
+        return res.status(401).json({ ok: false, message: 'No autorizado. Falta token de sesión.' });
+    }
+
+    const crypto = require('crypto');
+    const secret = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
+    const expectedToken = crypto.createHmac('sha256', secret).update(String(idUsuario)).digest('hex');
+
+    if (token !== expectedToken) {
+        return res.status(403).json({ ok: false, message: 'Acceso denegado. Token inválido.' });
+    }
+
+    next();
+}
+
 // ─── ACTUALIZAR PERFIL ────────────────────────────────────────────────────────
-app.post("/api/actualizar-perfil", async (req, res) => {
+app.post("/api/actualizar-perfil", validarTokenUsuario, async (req, res) => {
     try {
         const { idUsuario, nuevoNombre, nuevaFotoUrl } = perfilSchema.parse(req.body);
 

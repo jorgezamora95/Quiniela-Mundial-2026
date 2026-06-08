@@ -3,6 +3,18 @@ let temporizadorMensaje;
 let suscripcionActiva     = false; // true si el admin activó la suscripción
 let pronosticosMemoria    = {};    // { [partidoId]: { ModificacionesUsadas } }
 
+// Helper fetch wrapper to attach x-user-token header
+async function authFetch(url, options = {}) {
+    const token = localStorage.getItem("token");
+    if (!options.headers) {
+        options.headers = {};
+    }
+    if (token) {
+        options.headers["x-user-token"] = token;
+    }
+    return fetch(url, options);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     inicializarQuiniela();
     iniciarTemporizador();
@@ -27,8 +39,8 @@ async function inicializarQuiniela() {
     try {
         const [resPartidos, resQuiniela, resDatos] = await Promise.all([
             fetch("./data/partidos.json"),
-            fetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`),
-            fetch(`${API_URL}/api/mis-datos/${idUsuario}`)
+            authFetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`),
+            authFetch(`${API_URL}/api/mis-datos/${idUsuario}`)
         ]);
 
         partidosGlobal     = await resPartidos.json();
@@ -182,7 +194,7 @@ async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn
         btn.disabled  = true;
         btn.innerHTML = `⏳`;
 
-        const res = await fetch(`${API_URL}/api/guardar-quiniela`, {
+        const res = await authFetch(`${API_URL}/api/guardar-quiniela`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 idUsuario,
@@ -238,7 +250,7 @@ async function inicializarPronosticoCampeon() {
     const btnCampeon   = document.getElementById("btnGuardarCampeon");
 
     try {
-        const res  = await fetch(`${API_URL}/api/campeon/${idUsuario}`);
+        const res  = await authFetch(`${API_URL}/api/campeon/${idUsuario}`);
         const data = await res.json();
         if (data.ok && data.campeon) {
             const { SeleccionCampeon, GolesLocal, GolesVisitante } = data.campeon;
@@ -269,7 +281,7 @@ async function inicializarPronosticoCampeon() {
         if (!seleccion) { mostrarMensaje("⚠️ Escribe la selección campeona.", "error"); return; }
         try {
             btnCampeon.disabled = true;
-            const res  = await fetch(`${API_URL}/api/campeon`, {
+            const res  = await authFetch(`${API_URL}/api/campeon`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ idUsuario, seleccionCampeon: seleccion, golesLocal, golesVisitante })
             });
@@ -349,7 +361,7 @@ async function desbloquearPartido(partido, btn) {
         btn.disabled = true;
         btn.innerHTML = `⏳`;
 
-        const res = await fetch(`${API_URL}/api/desbloquear-partido`, {
+        const res = await authFetch(`${API_URL}/api/desbloquear-partido`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -368,8 +380,8 @@ async function desbloquearPartido(partido, btn) {
 
             // Recargar datos actualizados del backend
             const [resQuiniela, resDatos] = await Promise.all([
-                fetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`),
-                fetch(`${API_URL}/api/mis-datos/${idUsuario}`)
+                authFetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`),
+                authFetch(`${API_URL}/api/mis-datos/${idUsuario}`)
             ]);
             const datosDB = await resQuiniela.json();
             const datosSub = await resDatos.json();

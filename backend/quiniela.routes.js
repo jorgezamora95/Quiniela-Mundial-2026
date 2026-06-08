@@ -44,6 +44,29 @@ function validarTokenAdmin(req, res, next) {
     next();
 }
 
+function validarTokenUsuario(req, res, next) {
+    let idUsuario = req.params.idUsuario || req.body.idUsuario || req.query.idUsuario;
+    if (!idUsuario) {
+        return res.status(400).json({ ok: false, message: 'Falta ID de usuario para validación.' });
+    }
+
+    idUsuario = parseInt(idUsuario);
+
+    const token = req.headers['x-user-token'];
+    if (!token) {
+        return res.status(401).json({ ok: false, message: 'No autorizado. Falta token de sesión.' });
+    }
+
+    const secret = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
+    const expectedToken = crypto.createHmac('sha256', secret).update(String(idUsuario)).digest('hex');
+
+    if (token !== expectedToken) {
+        return res.status(403).json({ ok: false, message: 'Acceso denegado. Token inválido.' });
+    }
+
+    next();
+}
+
 // Proteger todas las rutas administrativas
 router.use('/admin', validarTokenAdmin);
 
@@ -118,7 +141,7 @@ function calcularCostoGoles(ms) {
 }
 
 // ─── GUARDAR QUINIELA ─────────────────────────────────────────────────────────
-router.post('/guardar-quiniela', async (req, res) => {
+router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
     try {
         const { idUsuario, pronosticos } = req.body;
 
@@ -263,7 +286,7 @@ router.post('/guardar-quiniela', async (req, res) => {
 
 
 // ─── OBTENER QUINIELA ─────────────────────────────────────────────────────────
-router.get('/obtener-quiniela/:idUsuario', async (req, res) => {
+router.get('/obtener-quiniela/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
         const idUsuario = parseInt(req.params.idUsuario);
         const result = await query(
@@ -278,7 +301,7 @@ router.get('/obtener-quiniela/:idUsuario', async (req, res) => {
 });
 
 // ─── MIS DATOS (suscripción + partidos desbloqueados) ────────────────────────
-router.get('/mis-datos/:idUsuario', async (req, res) => {
+router.get('/mis-datos/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
         const idUsuario = parseInt(req.params.idUsuario);
 
@@ -453,7 +476,7 @@ router.get('/tabla-general', async (req, res) => {
 });
 
 // ─── MIS RESULTADOS ───────────────────────────────────────────────────────────
-router.get('/mis-resultados/:idUsuario', async (req, res) => {
+router.get('/mis-resultados/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
         const idUsuario = parseInt(req.params.idUsuario);
 
@@ -501,7 +524,7 @@ router.get('/mis-resultados/:idUsuario', async (req, res) => {
 });
 
 // ─── CAMPEÓN ──────────────────────────────────────────────────────────────────
-router.post('/campeon', async (req, res) => {
+router.post('/campeon', validarTokenUsuario, async (req, res) => {
     let idUsuario = null;
     let seleccion = null;
     let gl = null;
@@ -553,7 +576,7 @@ router.post('/campeon', async (req, res) => {
     }
 });
 
-router.get('/campeon/:idUsuario', async (req, res) => {
+router.get('/campeon/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
         const result = await query(
             `SELECT seleccion_campeon AS "SeleccionCampeon", goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante"

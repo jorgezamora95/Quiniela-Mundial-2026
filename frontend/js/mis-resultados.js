@@ -1,5 +1,17 @@
 let historialCompletoGlobal = [];
 
+// Helper fetch wrapper to attach x-user-token header
+async function authFetch(url, options = {}) {
+    const token = localStorage.getItem("token");
+    if (!options.headers) {
+        options.headers = {};
+    }
+    if (token) {
+        options.headers["x-user-token"] = token;
+    }
+    return fetch(url, options);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     cargarMecanicaResultados();
 });
@@ -14,7 +26,7 @@ async function cargarMecanicaResultados() {
         const responsePartidos = await fetch("./data/partidos.json");
         const partidosJSON = await responsePartidos.json();
 
-        const responseDB = await fetch(`${API_URL}/api/mis-resultados/${idUsuario}`);
+        const responseDB = await authFetch(`${API_URL}/api/mis-resultados/${idUsuario}`);
         const data = await responseDB.json();
 
         if (!data.ok) return;
