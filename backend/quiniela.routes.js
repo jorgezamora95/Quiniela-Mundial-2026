@@ -324,11 +324,15 @@ router.post('/calcular-puntos', async (req, res) => {
              FROM pronosticos p INNER JOIN resultados_reales r ON p.partido_id=r.partido_id`
         );
 
+        const todosLosUsuarios = await query(`SELECT id_usuario FROM usuarios WHERE activo=TRUE`);
         const mapaPuntos = {}, mapaAciertos = {};
+        todosLosUsuarios.rows.forEach(u => {
+            mapaPuntos[u.id_usuario] = 0;
+            mapaAciertos[u.id_usuario] = 0;
+        });
+
         pros.rows.forEach(row => {
             const id = row.id_usuario;
-            if (!mapaPuntos[id])   mapaPuntos[id]   = 0;
-            if (!mapaAciertos[id]) mapaAciertos[id] = 0;
             if (row.pro_local===row.real_local && row.pro_visitante===row.real_visitante) { mapaPuntos[id]+=5; mapaAciertos[id]+=1; }
             else if ((row.pro_local>row.pro_visitante&&row.real_local>row.real_visitante)||(row.pro_local<row.pro_visitante&&row.real_local<row.real_visitante)||(row.pro_local===row.pro_visitante&&row.real_local===row.real_visitante)) { mapaPuntos[id]+=3; mapaAciertos[id]+=1; }
         });
