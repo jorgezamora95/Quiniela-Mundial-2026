@@ -157,7 +157,7 @@ function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
                 btnGuardar.style.borderColor = "rgba(231,76,60,.6)";
                 btnGuardar.style.background  = "rgba(231,76,60,.08)";
             } else if (modRestantes === 2) {
-                btnGuardar.innerHTML      = `💾 <small style="color:#f1c40f;">Guardar (te quedará 1 cambio más)</small>`;
+                btnGuardar.innerHTML      = `💾 <small style="color:#f1c40f;">Guardar (te quedarán 2 cambios más)</small>`;
                 btnGuardar.style.borderColor = "rgba(241,196,15,.5)";
             } else {
                 btnGuardar.innerHTML = `💾 <small>Guardar pronóstico</small>`;
@@ -207,10 +207,14 @@ async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn
 
         if (data.ok) {
             // Actualizar modificaciones en memoria
-            if (!pronosticosMemoria[partido.id]) pronosticosMemoria[partido.id] = { ModificacionesUsadas: 0 };
-            pronosticosMemoria[partido.id].ModificacionesUsadas++;
+            if (data.partidosDesbloqueados) {
+                data.partidosDesbloqueados.forEach(d => {
+                    pronosticosMemoria[d.PartidoId] = { ModificacionesUsadas: d.ModificacionesUsadas };
+                });
+            }
             partido.golesLocal = gl; partido.golesVisitante = gv;
-            const nuevasMod = 3 - pronosticosMemoria[partido.id].ModificacionesUsadas;
+            const memPartido = pronosticosMemoria[partido.id] || { ModificacionesUsadas: 0 };
+            const nuevasMod = 3 - memPartido.ModificacionesUsadas;
             btn.disabled = false;
 
             if (nuevasMod === 0) {
@@ -222,7 +226,7 @@ async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn
                 btn.style.borderColor = "rgba(231,76,60,.6)";
                 btn.style.background  = "rgba(231,76,60,.08)";
             } else {
-                btn.innerHTML        = `💾 <small style="color:#f1c40f;">Guardar (te quedará 1 cambio más)</small>`;
+                btn.innerHTML        = `💾 <small style="color:#f1c40f;">Guardar (te quedarán 2 cambios más)</small>`;
                 btn.style.borderColor = "rgba(241,196,15,.5)";
                 btn.style.background  = "";
             }

@@ -245,7 +245,7 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
             } else {
                 await query(
                     `INSERT INTO partidos_desbloqueados (id_usuario, partido_id, modificaciones_usadas, goles_gastados)
-                     VALUES ($1, $2, 1, 0)`,
+                     VALUES ($1, $2, 0, 0)`,
                     [idUsuario, pro.partidoId]
                 );
             }
@@ -266,11 +266,17 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
             [idUsuario]
         );
 
+        const desb = await query(
+            `SELECT partido_id AS "PartidoId", modificaciones_usadas AS "ModificacionesUsadas", goles_gastados AS "GolesGastados"
+             FROM partidos_desbloqueados WHERE id_usuario=$1`,
+            [idUsuario]
+        );
+
         const msg = errores.length > 0
             ? `⚠️ No se pudo guardar: ${errores.join(' | ')}`
             : `✅ Pronóstico guardado correctamente.`;
 
-        return res.json({ ok: guardados > 0, message: msg });
+        return res.json({ ok: guardados > 0, message: msg, partidosDesbloqueados: desb.rows });
 
     } catch (error) {
         console.error(error);
