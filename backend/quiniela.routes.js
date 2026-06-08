@@ -14,6 +14,18 @@ try {
     console.error('Error al cargar partidos.json en el backend:', err);
 }
 
+async function registrarLogActividad({ idUsuario, accion, partidoId, detalle, exito, errorMessage }) {
+    try {
+        await query(
+            `INSERT INTO logs_actividad (id_usuario, accion, partido_id, detalle, exito, error_message)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [idUsuario || null, accion, partidoId || null, detalle || null, exito ?? true, errorMessage || null]
+        );
+    } catch (err) {
+        console.error('❌ Error al registrar log de actividad:', err);
+    }
+}
+
 // ─── NODEMAILER ───────────────────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -95,8 +107,17 @@ router.post('/guardar-quiniela', async (req, res) => {
              WHERE s.id_usuario=$1 AND s.activa=TRUE`,
             [idUsuario]
         );
-        if (sub.rows.length === 0)
-            return res.status(403).json({ ok: false, message: '⛔ No tienes suscripción activa.' });
+        if (sub.rows.length === 0) {
+            const errMsg = '⛔ No tienes suscripción activa.';
+            await registrarLogActividad({
+                idUsuario,
+                accion: 'guardar_quiniela',
+                detalle: 'Intento de guardar quiniela sin suscripción activa',
+                exito: false,
+                errorMessage: errMsg
+            });
+            return res.status(403).json({ ok: false, message: errMsg });
+        }
 
         let errores = [], guardados = 0;
 
@@ -104,7 +125,16 @@ router.post('/guardar-quiniela', async (req, res) => {
             // 1. Verificar fecha del partido
             const partido = partidos.find(p => p.id === pro.partidoId);
             if (!partido) {
-                errores.push(`Partido #${pro.partidoId} no encontrado.`);
+                const errMsg = `Partido #${pro.partidoId} no encontrado.`;
+                errores.push(errMsg);
+                await registrarLogActividad({
+                    idUsuario,
+                    accion: 'guardar_quiniela',
+                    partidoId: pro.partidoId,
+                    detalle: `Intento Pronóstico: ${pro.golesLocal} - ${pro.golesVisitante}`,
+                    exito: false,
+                    errorMessage: errMsg
+                });
                 continue;
             }
 
@@ -113,7 +143,16 @@ router.post('/guardar-quiniela', async (req, res) => {
             const msHasta      = fechaPartido.getTime() - Date.now();
 
             if (msHasta <= 0) {
-                errores.push(`Partido #${pro.partidoId} (${partido.local} vs ${partido.visitante}) ya comenzó y no se puede modificar.`);
+                const errMsg = 'El partido ya comenzó y no se puede modificar.';
+                errores.push(`Partido #${pro.partidoId} (${partido.local} vs ${partido.visitante}) ${errMsg}`);
+                await registrarLogActividad({
+                    idUsuario,
+                    accion: 'guardar_quiniela',
+                    partidoId: pro.partidoId,
+                    detalle: `Intento Pronóstico: ${pro.golesLocal} - ${pro.golesVisitante}`,
+                    exito: false,
+                    errorMessage: errMsg
+                });
                 continue;
             }
 
@@ -132,7 +171,16 @@ router.post('/guardar-quiniela', async (req, res) => {
             }
 
             if (modUsadas >= 3) {
-                errores.push(`Partido #${pro.partidoId}: agotaste tus 3 modificaciones.`);
+                const errMsg = 'Agotaste tus 3 modificaciones.';
+                errores.push(`Partido #${pro.partidoId}: ${errMsg}`);
+                await registrarLogActividad({
+                    idUsuario,
+                    accion: 'guardar_quiniela',
+                    partidoId: pro.partidoId,
+                    detalle: `Intento Pronóstico: ${pro.golesLocal} - ${pro.golesVisitante}`,
+                    exito: false,
+                    errorMessage: errMsg
+                });
                 continue;
             }
 
@@ -158,6 +206,14 @@ router.post('/guardar-quiniela', async (req, res) => {
                 );
             }
 
+            await registrarLogActividad({
+                idUsuario,
+                accion: 'guardar_quiniela',
+                partidoId: pro.partidoId,
+                detalle: `Pronóstico guardado: ${pro.golesLocal} - ${pro.golesVisitante}`,
+                exito: true
+            });
+
             guardados++;
         }
 
@@ -174,6 +230,12 @@ router.post('/guardar-quiniela', async (req, res) => {
 
     } catch (error) {
         console.error(error);
+        await registrarLogActividad({
+            idUsuario,
+            accion: 'guardar_quiniela',
+            exito: false,
+            errorMessage: error.message || 'Error al procesar.'
+        });
         return res.status(400).json({ ok: false, message: 'Error al procesar.' });
     }
 });
@@ -419,20 +481,53 @@ router.get('/mis-resultados/:idUsuario', async (req, res) => {
 
 // ─── CAMPEÓN ──────────────────────────────────────────────────────────────────
 router.post('/campeon', async (req, res) => {
+    let idUsuario = null;
+    let seleccion = null;
+    let gl = null;
+    let gv = null;
     try {
         const DEADLINE_CAMPEON = new Date("2026-06-11T13:00:00 GMT-0600").getTime();
+        const body = req.body;
+        idUsuario = body?.idUsuario;
+        seleccion = body?.seleccionCampeon;
+        gl = body?.golesLocal;
+        gv = body?.golesVisitante;
+
         if (Date.now() >= DEADLINE_CAMPEON) {
-            return res.status(403).json({ ok: false, message: '⛔ El pronóstico de campeón ya está bloqueado.' });
+            const errMsg = '⛔ El pronóstico de campeón ya está bloqueado.';
+            await registrarLogActividad({
+                idUsuario,
+                accion: 'guardar_campeon',
+                detalle: `Intento Campeón: ${seleccion} (${gl} - ${gv})`,
+                exito: false,
+                errorMessage: errMsg
+            });
+            return res.status(403).json({ ok: false, message: errMsg });
         }
-        const { idUsuario, seleccionCampeon, golesLocal, golesVisitante } = campeonSchema.parse(req.body);
+        const { idUsuario: valId, seleccionCampeon, golesLocal, golesVisitante } = campeonSchema.parse(req.body);
         await query(
             `INSERT INTO pronosticos_campeon (id_usuario, seleccion_campeon, goles_local, goles_visitante)
              VALUES ($1, $2, $3, $4)
              ON CONFLICT (id_usuario) DO UPDATE SET seleccion_campeon=$2, goles_local=$3, goles_visitante=$4, fecha_actualizacion=NOW()`,
-            [idUsuario, seleccionCampeon, golesLocal, golesVisitante]
+            [valId, seleccionCampeon, golesLocal, golesVisitante]
         );
+
+        await registrarLogActividad({
+            idUsuario: valId,
+            accion: 'guardar_campeon',
+            detalle: `Campeón: ${seleccionCampeon} (${golesLocal} - ${golesVisitante})`,
+            exito: true
+        });
+
         return res.json({ ok: true, message: '🏆 Pronóstico de campeón guardado.' });
     } catch (error) {
+        await registrarLogActividad({
+            idUsuario,
+            accion: 'guardar_campeon',
+            detalle: `Intento Campeón: ${seleccion} (${gl} - ${gv})`,
+            exito: false,
+            errorMessage: error.message || 'Error al registrar campeón.'
+        });
         return res.status(400).json({ ok: false, message: 'Error.' });
     }
 });
@@ -806,6 +901,23 @@ router.get('/admin/exportar-pronosticos', async (req, res) => {
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error al exportar.' });
+    }
+});
+// ─── ADMIN: LOGS DE ACTIVIDAD ──────────────────────────────────────────────────
+router.get('/admin/logs', async (req, res) => {
+    try {
+        const result = await query(`
+            SELECT l.id_log AS "IdLog", l.id_usuario AS "IdUsuario", u.nombre AS "NombreUsuario",
+                   l.accion AS "Accion", l.partido_id AS "PartidoId", l.detalle AS "Detalle",
+                   l.fecha AS "Fecha", l.exito AS "Exito", l.error_message AS "ErrorMessage"
+            FROM logs_actividad l
+            LEFT JOIN usuarios u ON l.id_usuario=u.id_usuario
+            ORDER BY l.fecha DESC LIMIT 100
+        `);
+        return res.json({ ok: true, logs: result.rows });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error al obtener logs.' });
     }
 });
 

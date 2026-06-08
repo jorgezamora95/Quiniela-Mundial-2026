@@ -107,6 +107,34 @@
                 </button>
             </div>
 
+            <!-- ══ 7: LOGS DE ACTIVIDAD ══ -->
+            <div class="page-header" style="margin-top:2rem;">
+                <div>
+                    <h2>📋 Logs de Actividad</h2>
+                    <p>Historial de los últimos 100 intentos de guardar y cambios en el sistema.</p>
+                </div>
+                <button id="btnRefrescarLogs" class="btn-enviar" style="background:#8e44ad; white-space:nowrap; margin:0; padding:0.6rem 1.2rem; width:auto;">🔄 Actualizar logs</button>
+            </div>
+            <div class="quiniela-card" style="max-height: 400px; overflow-y: auto; padding:0.5rem;">
+                <table style="width:100%; border-collapse:collapse; color:#b8c2d6; font-size:.9rem; text-align:left;">
+                    <thead>
+                        <tr style="border-bottom:2px solid rgba(255,255,255,.1); font-weight:bold; color:white; background:rgba(255,255,255,.02);">
+                            <th style="padding:.8rem;">Fecha</th>
+                            <th style="padding:.8rem;">Usuario</th>
+                            <th style="padding:.8rem;">Acción</th>
+                            <th style="padding:.8rem;">Partido</th>
+                            <th style="padding:.8rem;">Detalle</th>
+                            <th style="padding:.8rem;">Resultado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaLogsCuerpo">
+                        <tr>
+                            <td colspan="6" style="padding:1.5rem; text-align:center; color:#b8c2d6;">Cargando historial de actividad...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
         </div>
     </main>
     <script src="./js/config.js"></script>

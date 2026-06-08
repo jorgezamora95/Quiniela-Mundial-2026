@@ -21,4 +21,25 @@ pool.on('error', (err) => console.error('❌ Error PostgreSQL:', err));
 // Helper para queries más limpias
 const query = (text, params) => pool.query(text, params);
 
+// Crear tabla de logs de actividad si no existe (auto-bootstrap)
+(async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS logs_actividad (
+                id_log          SERIAL PRIMARY KEY,
+                id_usuario      INT,
+                accion          VARCHAR(100) NOT NULL,
+                partido_id      INT,
+                detalle         TEXT,
+                fecha           TIMESTAMP DEFAULT NOW(),
+                exito           BOOLEAN DEFAULT TRUE,
+                error_message   TEXT
+            )
+        `);
+        console.log('✅ Tabla logs_actividad verificada/creada.');
+    } catch (err) {
+        console.error('❌ Error al verificar/crear tabla logs_actividad:', err);
+    }
+})();
+
 module.exports = { pool, query };

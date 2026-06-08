@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
     inicializarPanelPendientes();
     inicializarPanelCampeonAdmin();
     configurarBotonRevelarGanadores();
+    inicializarLogsAdmin();
 });
 
 // ─── RESULTADOS OFICIALES ────────────────────────────────────────────────────
@@ -486,3 +487,52 @@ document.getElementById("btnExportarPronosticos")?.addEventListener("click", asy
         alert("Error al exportar.");
     }
 });
+
+// ─── AUDIT LOGS VIEW ─────────────────────────────────────────────────────────
+async function inicializarLogsAdmin() {
+    const cuerpo = document.getElementById("tablaLogsCuerpo");
+    const btnRefrescar = document.getElementById("btnRefrescarLogs");
+    if (!cuerpo) return;
+
+    if (btnRefrescar) {
+        btnRefrescar.onclick = () => inicializarLogsAdmin();
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/api/admin/logs`);
+        const data = await res.json();
+        if (!data.ok) {
+            cuerpo.innerHTML = `<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:#e74c3c;">Error: ${data.message}</td></tr>`;
+            return;
+        }
+
+        if (data.logs.length === 0) {
+            cuerpo.innerHTML = `<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:#b8c2d6;">No hay registros de actividad aún.</td></tr>`;
+            return;
+        }
+
+        cuerpo.innerHTML = data.logs.map(log => {
+            const fechaStr = new Date(log.Fecha).toLocaleString('es-MX');
+            const exitoBadge = log.Exito 
+                ? '<span style="color:#2ecc71; font-weight:bold;">✅ Éxito</span>' 
+                : `<span style="color:#e74c3c; font-weight:bold;" title="${log.ErrorMessage || ''}">❌ Fallo: ${log.ErrorMessage || 'Error desconocido'}</span>`;
+            
+            const partidoStr = log.PartidoId ? `Partido #${log.PartidoId}` : '-';
+            const usuarioStr = log.NombreUsuario ? `${log.NombreUsuario} (ID: ${log.IdUsuario})` : `Usuario ID: ${log.IdUsuario || '-'}`;
+
+            return `
+                <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
+                    <td style="padding:.8rem; white-space:nowrap;">${fechaStr}</td>
+                    <td style="padding:.8rem;">${usuarioStr}</td>
+                    <td style="padding:.8rem; font-weight:bold; color:white;">${log.Accion}</td>
+                    <td style="padding:.8rem;">${partidoStr}</td>
+                    <td style="padding:.8rem; color:#fff;">${log.Detalle || '-'}</td>
+                    <td style="padding:.8rem;">${exitoBadge}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error(error);
+        cuerpo.innerHTML = `<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:#e74c3c;">Error al obtener logs de actividad.</td></tr>`;
+    }
+}
