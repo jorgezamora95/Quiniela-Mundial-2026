@@ -44,6 +44,7 @@ async function inicializarQuiniela() {
         ]);
 
         partidosGlobal     = await resPartidos.json();
+        poblarDropdownCampeon(partidosGlobal);
         const datosDB      = await resQuiniela.json();
         const datosSub     = await resDatos.json();
 
@@ -244,7 +245,7 @@ async function inicializarPronosticoCampeon() {
     const DEADLINE_CAMPEON = new Date("June 11, 2026 13:00:00 GMT-0600").getTime();
     const yaInicioMundial = Date.now() >= DEADLINE_CAMPEON;
 
-    const inputCampeon = document.getElementById("inputCampeon");
+    const selectCampeon = document.getElementById("selectCampeon");
     const inputGL      = document.getElementById("inputCampeonGL");
     const inputGV      = document.getElementById("inputCampeonGV");
     const btnCampeon   = document.getElementById("btnGuardarCampeon");
@@ -254,14 +255,19 @@ async function inicializarPronosticoCampeon() {
         const data = await res.json();
         if (data.ok && data.campeon) {
             const { SeleccionCampeon, GolesLocal, GolesVisitante } = data.campeon;
-            if (inputCampeon) inputCampeon.value = SeleccionCampeon;
+            if (selectCampeon) {
+                if (selectCampeon.options.length <= 1 && partidosGlobal.length > 0) {
+                    poblarDropdownCampeon(partidosGlobal);
+                }
+                selectCampeon.value = SeleccionCampeon || "";
+            }
             if (inputGL)      inputGL.value      = GolesLocal ?? "";
             if (inputGV)      inputGV.value      = GolesVisitante ?? "";
         }
     } catch (e) { console.error(e); }
 
     if (yaInicioMundial) {
-        if (inputCampeon) inputCampeon.disabled = true;
+        if (selectCampeon) selectCampeon.disabled = true;
         if (inputGL)      inputGL.disabled = true;
         if (inputGV)      inputGV.disabled = true;
         if (btnCampeon) {
@@ -275,10 +281,10 @@ async function inicializarPronosticoCampeon() {
 
     btnCampeon.addEventListener("click", async () => {
         const idUsuario      = parseInt(localStorage.getItem("idUsuario"));
-        const seleccion      = document.getElementById("inputCampeon")?.value.trim();
+        const seleccion      = document.getElementById("selectCampeon")?.value;
         const golesLocal     = parseInt(document.getElementById("inputCampeonGL")?.value) ?? 0;
         const golesVisitante = parseInt(document.getElementById("inputCampeonGV")?.value) ?? 0;
-        if (!seleccion) { mostrarMensaje("⚠️ Escribe la selección campeona.", "error"); return; }
+        if (!seleccion) { mostrarMensaje("⚠️ Selecciona la selección campeona.", "error"); return; }
         try {
             btnCampeon.disabled = true;
             const res  = await authFetch(`${API_URL}/api/campeon`, {
@@ -397,4 +403,17 @@ async function desbloquearPartido(partido, btn) {
         btn.disabled = false;
         btn.innerHTML = `<i class="fa-solid fa-lock-open"></i> <small>Desbloquear</small>`;
     }
+}
+
+function poblarDropdownCampeon(partidos) {
+    const selectCampeon = document.getElementById("selectCampeon");
+    if (!selectCampeon) return;
+
+    const paises = [...new Set(partidos.flatMap(p => [p.local, p.visitante]))].sort((a, b) => a.localeCompare(b));
+    const valorActual = selectCampeon.value;
+
+    selectCampeon.innerHTML = '<option value="">-- Selecciona país --</option>' +
+        paises.map(p => `<option value="${p}">${p}</option>`).join('');
+
+    if (valorActual) selectCampeon.value = valorActual;
 }

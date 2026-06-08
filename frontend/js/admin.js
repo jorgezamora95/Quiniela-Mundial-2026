@@ -57,6 +57,7 @@ async function inicializarAdmin() {
             adminFetch(`${API_URL}/api/obtener-resultados`)
         ]);
         partidosAdminGlobal   = await resPartidos.json();
+        poblarDropdownCampeonAdmin(partidosAdminGlobal);
         const datosDB         = await resDB.json();
         if (datosDB.ok) resultadosGuardadosBD = datosDB.resultados;
         renderizarPartidosAdmin(partidosAdminGlobal);
@@ -418,11 +419,11 @@ function inicializarPanelCampeonAdmin() {
     const btn = document.getElementById("btnRegistrarCampeonReal");
     if (!btn) return;
     btn.addEventListener("click", async () => {
-        const seleccion = document.getElementById("inputCampeonReal")?.value.trim();
+        const seleccion = document.getElementById("selectCampeonReal")?.value;
         const gl        = parseInt(document.getElementById("inputCampeonRealGL")?.value) ?? 0;
         const gv        = parseInt(document.getElementById("inputCampeonRealGV")?.value) ?? 0;
         const msgEl     = document.getElementById("adminMensajeCampeon");
-        if (!seleccion) { msgEl.textContent="⚠️ Escribe la selección campeona."; msgEl.style.color="#e74c3c"; return; }
+        if (!seleccion) { msgEl.textContent="⚠️ Selecciona la selección campeona."; msgEl.style.color="#e74c3c"; return; }
         try {
             btn.disabled = true;
             const res  = await adminFetch(`${API_URL}/api/admin/campeon-real`, {
@@ -558,4 +559,17 @@ async function inicializarLogsAdmin() {
         console.error(error);
         cuerpo.innerHTML = `<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:#e74c3c;">Error al obtener logs de actividad.</td></tr>`;
     }
+}
+
+function poblarDropdownCampeonAdmin(partidos) {
+    const selectCampeonReal = document.getElementById("selectCampeonReal");
+    if (!selectCampeonReal) return;
+
+    const paises = [...new Set(partidos.flatMap(p => [p.local, p.visitante]))].sort((a, b) => a.localeCompare(b));
+    const valorActual = selectCampeonReal.value;
+
+    selectCampeonReal.innerHTML = '<option value="">-- Selecciona país --</option>' +
+        paises.map(p => `<option value="${p}">${p}</option>`).join('');
+
+    if (valorActual) selectCampeonReal.value = valorActual;
 }
