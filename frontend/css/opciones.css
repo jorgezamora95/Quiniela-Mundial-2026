@@ -168,6 +168,26 @@
 .mensaje.success{ color: #2ecc71; }
 .mensaje.error{ color: #ff6b6b; }
 
+.input-helper{
+    display: block;
+    font-size: .8rem;
+    color: #8fa0dd;
+    margin-top: .45rem;
+    line-height: 1.4;
+}
+
+.input-helper a{
+    color: #2ecc71;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+}
+
+.input-helper a:hover{
+    color: #27ae60;
+    text-decoration: underline;
+}
+
 /* ── RESPONSIVE ─────────────────────────────── */
 @media(max-width: 1000px){
     .opciones-layout{
