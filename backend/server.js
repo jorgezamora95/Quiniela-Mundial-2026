@@ -14,8 +14,11 @@ const allowedOrigins = [
     "http://10.200.20.102:8080",
     "http://10.200.20.102",
     "http://10.200.20.102:3000",
+    "https://pixki.mx",
+    "https://quinielalanding.vercel.app",
+    process.env.FRONTEND_URL,
     `http://${process.env.FRONTEND_HOST || "localhost"}:8080`
-];
+].filter(Boolean);
 
 app.use(cors({
     origin: (origin, callback) => {
@@ -97,6 +100,15 @@ app.post("/api/login", async (req, res) => {
         if (!passwordCorrecta)
             return res.status(401).json({ ok: false, message: "Correo o contraseña incorrectos" });
 
+        const crypto = require('crypto');
+        const secret = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
+        const token = crypto.createHmac('sha256', secret).update(String(usuario.id_usuario)).digest('hex');
+
+        let adminToken = null;
+        if (usuario.id_usuario === 1) {
+            adminToken = token;
+        }
+
         res.json({
             ok: true,
             message: "Login correcto",
@@ -105,7 +117,9 @@ app.post("/api/login", async (req, res) => {
                 nombre:    usuario.nombre,
                 correo:    usuario.correo,
                 fotoUrl:   usuario.foto_url
-            }
+            },
+            token,
+            adminToken
         });
 
     } catch (error) {
@@ -118,7 +132,15 @@ app.post("/api/login", async (req, res) => {
 const perfilSchema = z.object({
     idUsuario:    z.number().int().positive(),
     nuevoNombre:  z.string().min(2).max(100).trim(),
-    nuevaFotoUrl: z.string().trim().url().optional().or(z.literal(""))
+    nuevaFotoUrl: z.string().trim().max(1000000).refine(val => {
+        if (val === "") return true;
+        if (val.startsWith("http://") || val.startsWith("https://")) return true;
+        if (val.startsWith("data:image/")) return true;
+        if (val.startsWith("./") || val.startsWith("img/")) return true;
+        return false;
+    }, {
+        message: "La foto debe ser una URL válida, ruta local o imagen base64."
+    }).optional().nullable()
 });
 
 const restablecerSchema = z.object({
@@ -127,8 +149,32 @@ const restablecerSchema = z.object({
     nuevaPassword:      z.string().min(6)
 });
 
+function validarTokenUsuario(req, res, next) {
+    let idUsuario = req.params.idUsuario || req.body.idUsuario || req.query.idUsuario;
+    if (!idUsuario) {
+        return res.status(400).json({ ok: false, message: 'Falta ID de usuario para validación.' });
+    }
+
+    idUsuario = parseInt(idUsuario);
+
+    const token = req.headers['x-user-token'];
+    if (!token) {
+        return res.status(401).json({ ok: false, message: 'No autorizado. Falta token de sesión.' });
+    }
+
+    const crypto = require('crypto');
+    const secret = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
+    const expectedToken = crypto.createHmac('sha256', secret).update(String(idUsuario)).digest('hex');
+
+    if (token !== expectedToken) {
+        return res.status(403).json({ ok: false, message: 'Acceso denegado. Token inválido.' });
+    }
+
+    next();
+}
+
 // ─── ACTUALIZAR PERFIL ────────────────────────────────────────────────────────
-app.post("/api/actualizar-perfil", async (req, res) => {
+app.post("/api/actualizar-perfil", validarTokenUsuario, async (req, res) => {
     try {
         const { idUsuario, nuevoNombre, nuevaFotoUrl } = perfilSchema.parse(req.body);
 

@@ -81,7 +81,9 @@
                 <div class="campeon-form">
                     <div class="campeon-input-group">
                         <label>Selección Campeona</label>
-                        <input type="text" id="inputCampeon" placeholder="Ej. México, Brasil, Argentina..." autocomplete="off">
+                        <select id="selectCampeon" style="width:100%; background:#0d1f33; color:white; border:1px solid rgba(255,255,255,.2); padding:.6rem 1rem; border-radius:8px; margin-top:.3rem; height:42px; outline:none; cursor:pointer;">
+                            <option value="">-- Selecciona país --</option>
+                        </select>
                     </div>
                     <div class="campeon-marcador">
                         <div class="campeon-input-group">
@@ -116,36 +118,12 @@
                 </div>
             </div>
 
-            <!-- Panel de Goles -->
-            <div class="panel-card" id="panelGoles" style="display:none;">
-                <h3>⚽ Mis Goles</h3>
-                <div class="goles-info">
-                    <div class="goles-row">
-                        <span id="txtPaquete">Sin plan</span>
-                        <strong id="txtGolesRestantes">0 goles</strong>
-                    </div>
-                    <div class="barra-goles-bg">
-                        <div class="barra-goles-fill" id="barGoles" style="width:100%"></div>
-                    </div>
-                    <small id="txtPartidosDesbloqueados" style="color:#b8c2d6;">0 / 0 partidos</small>
-                </div>
-
-                <!-- Tabla de costos -->
-                <div class="tabla-costos">
-                    <h4>Costo de desbloqueo</h4>
-                    <div class="costo-row"><span>Más de 1 hora antes</span><strong>1 gol</strong></div>
-                    <div class="costo-row urgente"><span>59 - 30 min antes</span><strong>3 goles</strong></div>
-                    <div class="costo-row critico"><span>29 - 5 min antes</span><strong>5 goles</strong></div>
-                    <div class="costo-row bloqueado"><span>Partido en juego</span><strong>No disponible</strong></div>
-                </div>
-            </div>
-
             <!-- Reglas rápidas -->
             <div class="panel-card">
                 <h3>📋 Reglas de puntos</h3>
                 <div class="regla-row-q"><span>Marcador exacto</span><strong class="text-green">5 pts</strong></div>
                 <div class="regla-row-q"><span>Ganador correcto</span><strong class="text-green">3 pts</strong></div>
-                <div class="regla-row-q"><span>Empate correcto</span><strong class="text-green">3 pts</strong></div>
+                <div class="regla-row-q"><span>Empate correcto</span><strong class="text-green">1 pt</strong></div>
                 <div class="regla-row-q"><span>Campeón correcto</span><strong class="text-green">15 pts</strong></div>
                 <div class="regla-row-q"><span>Campeón + marcador</span><strong class="text-green">25 pts</strong></div>
                 <div class="regla-row-q"><span>Pronóstico incorrecto</span><strong style="color:#e74c3c;">0 pts</strong></div>

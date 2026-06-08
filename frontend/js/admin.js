@@ -14,6 +14,29 @@ let paquetesGlobal        = [];
     }
 })();
 
+// Helper fetch wrapper to attach x-admin-token header
+async function adminFetch(url, options = {}) {
+    const adminToken = localStorage.getItem("adminToken");
+    if (!options.headers) {
+        options.headers = {};
+    }
+    if (adminToken) {
+        options.headers["x-admin-token"] = adminToken;
+    }
+    return fetch(url, options);
+}
+
+// Helper for escaping HTML to prevent Stored XSS
+function escapeHTML(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     inicializarAdmin();
     configurarBotonRecalcular();
@@ -22,6 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
     inicializarPanelPendientes();
     inicializarPanelCampeonAdmin();
     configurarBotonRevelarGanadores();
+    inicializarLogsAdmin();
 });
 
 // ─── RESULTADOS OFICIALES ────────────────────────────────────────────────────
@@ -30,9 +54,10 @@ async function inicializarAdmin() {
     try {
         const [resPartidos, resDB] = await Promise.all([
             fetch("./data/partidos.json"),
-            fetch(`${API_URL}/api/obtener-resultados`)
+            adminFetch(`${API_URL}/api/obtener-resultados`)
         ]);
         partidosAdminGlobal   = await resPartidos.json();
+        poblarDropdownCampeonAdmin(partidosAdminGlobal);
         const datosDB         = await resDB.json();
         if (datosDB.ok) resultadosGuardadosBD = datosDB.resultados;
         renderizarPartidosAdmin(partidosAdminGlobal);
@@ -100,7 +125,7 @@ async function enviarResultadoOficial(partidoId, gL, gV, btn, local, visitante) 
     const msg = document.getElementById("adminMensaje");
     if (gL===""||gV==="") { msg.textContent="⚠️ Ingresa ambos marcadores."; msg.style.color="#e74c3c"; return; }
     try {
-        const res  = await fetch(`${API_URL}/api/guardar-resultado`, {
+        const res  = await adminFetch(`${API_URL}/api/guardar-resultado`, {
             method:"POST", headers:{"Content-Type":"application/json"},
             body: JSON.stringify({ partidoId:parseInt(partidoId), golesLocal:parseInt(gL), golesVisitante:parseInt(gV), local, visitante })
         });
@@ -126,7 +151,7 @@ function configurarBotonRecalcular() {
     btn.addEventListener("click", async () => {
         try {
             msg.textContent="⏳ Procesando..."; msg.style.color="#f1c40f";
-            const res  = await fetch(`${API_URL}/api/calcular-puntos`, { method:"POST" });
+            const res  = await adminFetch(`${API_URL}/api/calcular-puntos`, { method:"POST" });
             const data = await res.json();
             msg.textContent=data.message; msg.style.color=data.ok?"#2ecc71":"#e74c3c";
             if (data.ok) inicializarPanelBolsa();
@@ -137,7 +162,7 @@ function configurarBotonRecalcular() {
 // ─── PANEL BOLSA ──────────────────────────────────────────────────────────────
 async function inicializarPanelBolsa() {
     try {
-        const res  = await fetch(`${API_URL}/api/admin/bolsa`);
+        const res  = await adminFetch(`${API_URL}/api/admin/bolsa`);
         const data = await res.json();
         if (!data.ok) return;
         renderizarPanelBolsa(data);
@@ -213,8 +238,8 @@ function renderizarPanelBolsa(data) {
 async function inicializarPanelSuscripciones() {
     try {
         const [resUsers, resPaq] = await Promise.all([
-            fetch(`${API_URL}/api/admin/usuarios-suscripciones`),
-            fetch(`${API_URL}/api/paquetes`)
+            adminFetch(`${API_URL}/api/admin/usuarios-suscripciones`),
+            adminFetch(`${API_URL}/api/paquetes`)
         ]);
         const dataUsers = await resUsers.json();
         const dataPaq   = await resPaq.json();
@@ -240,15 +265,9 @@ function renderizarPanelSuscripciones(usuarios) {
         const userDiv = document.createElement("div");
         let estadoBadge = '<span style="color:#b8c2d6; font-size:.8rem;">Sin suscripción</span>';
         if (u.TieneSuscripcion) {
-            const pct = u.GolesIniciales > 0 ? Math.round((u.GolesRestantes / u.GolesIniciales) * 100) : 0;
-            estadoBadge = `
-                <span style="color:#2ecc71; font-size:.8rem;">✅ ${u.Paquete}</span>
-                <small style="display:block; color:#b8c2d6;">${u.GolesRestantes}/${u.GolesIniciales} goles · ${u.PartidosDesbloqueados}/${u.MaxPartidos} partidos</small>
-                <div style="background:rgba(255,255,255,.1); border-radius:4px; height:4px; margin-top:.3rem;">
-                    <div style="background:#2ecc71; width:${pct}%; height:100%; border-radius:4px;"></div>
-                </div>`;
+            estadoBadge = `<span style="color:#2ecc71; font-size:.8rem;">✅ ${escapeHTML(u.Paquete)}</span>`;
         }
-        userDiv.innerHTML = `<strong>${u.Nombre}</strong><small style="display:block;color:#b8c2d6;">${u.Correo}</small>${estadoBadge}`;
+        userDiv.innerHTML = `<strong>${escapeHTML(u.Nombre)}</strong><small style="display:block;color:#b8c2d6;">${escapeHTML(u.Correo)}</small>${estadoBadge}`;
 
         // Controles de paquete
         const ctrlDiv = document.createElement("div");
@@ -292,7 +311,7 @@ function renderizarPanelSuscripciones(usuarios) {
             if (!idPaquete) { msgEl.textContent = "⚠️ Selecciona un paquete."; msgEl.style.color = "#e74c3c"; return; }
             try {
                 btnActivar.disabled = true;
-                const res  = await fetch(`${API_URL}/api/admin/activar-suscripcion`, {
+                const res  = await adminFetch(`${API_URL}/api/admin/activar-suscripcion`, {
                     method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ idUsuario: u.IdUsuario, idPaquete, notas })
                 });
@@ -310,71 +329,7 @@ function renderizarPanelSuscripciones(usuarios) {
 
         card.append(userDiv, ctrlDiv, btnActivar);
 
-        // ─── FILA DE RECARGA (solo si ya tiene suscripción) ──────────
-        if (u.TieneSuscripcion) {
-            const recargaDiv = document.createElement("div");
-            recargaDiv.style.cssText = "display:grid; grid-template-columns:1fr 1fr 1.5fr 1fr; gap:.5rem; align-items:center; margin-top:.8rem; padding-top:.8rem; border-top:1px solid rgba(255,255,255,.05);";
-
-            const inputGoles = document.createElement("input");
-            inputGoles.type        = "number";
-            inputGoles.min         = "1";
-            inputGoles.placeholder = "Goles a agregar";
-            inputGoles.style.cssText = "background:#0d1f33; color:white; border:1px solid rgba(52,152,219,.4); padding:.4rem .8rem; border-radius:8px;";
-
-            const inputMonto = document.createElement("input");
-            inputMonto.type        = "number";
-            inputMonto.min         = "1";
-            inputMonto.placeholder = "Monto $MXN";
-            inputMonto.style.cssText = "background:#0d1f33; color:white; border:1px solid rgba(52,152,219,.4); padding:.4rem .8rem; border-radius:8px;";
-
-            const inputNotaRecarga = document.createElement("input");
-            inputNotaRecarga.type        = "text";
-            inputNotaRecarga.placeholder = "Nota recarga (ej: Pagó $200)";
-            inputNotaRecarga.style.cssText = "background:#0d1f33; color:white; border:1px solid rgba(52,152,219,.4); padding:.4rem .8rem; border-radius:8px;";
-
-            const btnRecarga = document.createElement("button");
-            btnRecarga.innerHTML  = "➕ Recarga";
-            btnRecarga.className  = "btn-registrar-fila";
-            btnRecarga.style.cssText = "background:#3498db; color:#fff; font-weight:bold; cursor:pointer; white-space:nowrap;";
-
-            btnRecarga.addEventListener("click", async () => {
-                const goles  = parseInt(inputGoles.value);
-                const monto  = parseFloat(inputMonto.value);
-                const nota   = inputNotaRecarga.value.trim();
-                const msgEl  = document.getElementById("adminMensajeSubs");
-
-                if (!goles || goles < 1) { msgEl.textContent = "⚠️ Ingresa los goles a agregar."; msgEl.style.color = "#e74c3c"; return; }
-                if (!monto || monto < 1) { msgEl.textContent = "⚠️ Ingresa el monto pagado.";    msgEl.style.color = "#e74c3c"; return; }
-
-                try {
-                    btnRecarga.disabled = true;
-                    const res  = await fetch(`${API_URL}/api/admin/registrar-recarga`, {
-                        method: "POST", headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ idUsuario: u.IdUsuario, goles, monto, nota })
-                    });
-                    const data = await res.json();
-                    msgEl.textContent = data.message;
-                    msgEl.style.color = data.ok ? "#2ecc71" : "#e74c3c";
-                    if (data.ok) {
-                        inputGoles.value = "";
-                        inputMonto.value = "";
-                        inputNotaRecarga.value = "";
-                        setTimeout(() => inicializarPanelSuscripciones(), 1000);
-                        inicializarPanelBolsa();
-                    }
-                } catch(e) { console.error(e); }
-                finally { btnRecarga.disabled = false; }
-            });
-
-            const labelRecarga = document.createElement("small");
-            labelRecarga.textContent = "➕ Registrar recarga de Goles:";
-            labelRecarga.style.cssText = "color:#3498db; font-size:.78rem; grid-column:1/-1; margin-bottom:-.2rem;";
-
-            recargaDiv.append(labelRecarga, inputGoles, inputMonto, inputNotaRecarga, btnRecarga);
-            wrapper.append(card, recargaDiv);
-        } else {
-            wrapper.appendChild(card);
-        }
+        wrapper.appendChild(card);
 
         container.appendChild(wrapper);
     });
@@ -383,7 +338,7 @@ function renderizarPanelSuscripciones(usuarios) {
 // ─── PANEL PENDIENTES ────────────────────────────────────────────────────────
 async function inicializarPanelPendientes() {
     try {
-        const res  = await fetch(`${API_URL}/api/admin/pendientes`);
+        const res  = await adminFetch(`${API_URL}/api/admin/pendientes`);
         const data = await res.json();
         if (!data.ok) return;
         renderizarPendientes(data.pendientes);
@@ -403,7 +358,7 @@ function renderizarPendientes(pendientes) {
             const row = document.createElement("div");
             row.style.cssText = "display:grid; grid-template-columns:2fr 1fr 2fr 1fr 1fr; align-items:center; gap:1rem; padding:1rem 1.2rem; border-bottom:1px solid rgba(255,255,255,.07);";
             const infoDiv = document.createElement("div");
-            infoDiv.innerHTML = `<strong>${p.LocalNombre} ${p.GolesLocal} - ${p.GolesVisitante} ${p.VisitanteNombre}</strong><small style="display:block; color:#b8c2d6;">${new Date(p.FechaPartido).toLocaleDateString('es-MX')}</small>`;
+            infoDiv.innerHTML = `<strong>${escapeHTML(p.LocalNombre)} ${p.GolesLocal} - ${p.GolesVisitante} ${escapeHTML(p.VisitanteNombre)}</strong><small style="display:block; color:#b8c2d6;">${new Date(p.FechaPartido).toLocaleDateString('es-MX')}</small>`;
             const badgeDiv = document.createElement("div");
             badgeDiv.innerHTML = `<span style="background:rgba(46,204,113,.15); border:1px solid rgba(46,204,113,.3); color:#2ecc71; padding:.3rem .6rem; border-radius:8px;">${p.GolesLocal} - ${p.GolesVisitante}</span>`;
             const selectPartido = document.createElement("select");
@@ -425,7 +380,7 @@ function renderizarPendientes(pendientes) {
                 if (!partidoId) { msgEl.textContent="⚠️ Selecciona el partido."; msgEl.style.color="#e74c3c"; return; }
                 try {
                     btnValidar.disabled = true;
-                    const res  = await fetch(`${API_URL}/api/admin/validar-pendiente`, {
+                    const res  = await adminFetch(`${API_URL}/api/admin/validar-pendiente`, {
                         method:"POST", headers:{"Content-Type":"application/json"},
                         body: JSON.stringify({ idPendiente: p.IdPendiente, partidoId })
                     });
@@ -439,7 +394,7 @@ function renderizarPendientes(pendientes) {
             btnRechazar.style.cssText = "background:rgba(231,76,60,.15); border:1px solid rgba(231,76,60,.3); color:#e74c3c; padding:.4rem .8rem; border-radius:8px; cursor:pointer;";
             btnRechazar.addEventListener("click", async () => {
                 if (!confirm("¿Descartar?")) return;
-                await fetch(`${API_URL}/api/admin/rechazar-pendiente`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ idPendiente: p.IdPendiente }) });
+                await adminFetch(`${API_URL}/api/admin/rechazar-pendiente`, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ idPendiente: p.IdPendiente }) });
                 setTimeout(() => inicializarPanelPendientes(), 500);
             });
             row.append(infoDiv, badgeDiv, selectPartido, btnValidar, btnRechazar);
@@ -452,7 +407,7 @@ document.getElementById("btnSincronizarAhora")?.addEventListener("click", async 
     const msgEl = document.getElementById("adminMensajePendientes");
     msgEl.textContent = "⏳ Sincronizando..."; msgEl.style.color = "#f1c40f";
     try {
-        const res  = await fetch(`${API_URL}/api/admin/sincronizar`, { method:"POST" });
+        const res  = await adminFetch(`${API_URL}/api/admin/sincronizar`, { method:"POST" });
         const data = await res.json();
         msgEl.textContent = data.message; msgEl.style.color = data.ok ? "#2ecc71" : "#e74c3c";
         if (data.ok) setTimeout(() => inicializarPanelPendientes(), 1000);
@@ -464,14 +419,14 @@ function inicializarPanelCampeonAdmin() {
     const btn = document.getElementById("btnRegistrarCampeonReal");
     if (!btn) return;
     btn.addEventListener("click", async () => {
-        const seleccion = document.getElementById("inputCampeonReal")?.value.trim();
+        const seleccion = document.getElementById("selectCampeonReal")?.value;
         const gl        = parseInt(document.getElementById("inputCampeonRealGL")?.value) ?? 0;
         const gv        = parseInt(document.getElementById("inputCampeonRealGV")?.value) ?? 0;
         const msgEl     = document.getElementById("adminMensajeCampeon");
-        if (!seleccion) { msgEl.textContent="⚠️ Escribe la selección campeona."; msgEl.style.color="#e74c3c"; return; }
+        if (!seleccion) { msgEl.textContent="⚠️ Selecciona la selección campeona."; msgEl.style.color="#e74c3c"; return; }
         try {
             btn.disabled = true;
-            const res  = await fetch(`${API_URL}/api/admin/campeon-real`, {
+            const res  = await adminFetch(`${API_URL}/api/admin/campeon-real`, {
                 method:"POST", headers:{"Content-Type":"application/json"},
                 body: JSON.stringify({ seleccionCampeon:seleccion, golesLocal:gl, golesVisitante:gv })
             });
@@ -495,7 +450,7 @@ function configurarBotonRevelarGanadores() {
             btn.textContent = "⏳ Revelando...";
             msgEl.textContent = "⏳ Calculando ganadores y enviando correos...";
             msgEl.style.color = "#f1c40f";
-            const res  = await fetch(`${API_URL}/api/admin/revelar-ganadores`, { method:"POST" });
+            const res  = await adminFetch(`${API_URL}/api/admin/revelar-ganadores`, { method:"POST" });
             const data = await res.json();
             msgEl.textContent = data.message;
             msgEl.style.color = data.ok ? "#2ecc71" : "#e74c3c";
@@ -530,7 +485,7 @@ function obtenerEmojiBandera(codigoPais) {
 document.getElementById("btnExportarPronosticos")?.addEventListener("click", async () => {
     try {
         // Jalar todos los pronósticos del backend
-        const res  = await fetch(`${API_URL}/api/admin/exportar-pronosticos`);
+        const res  = await adminFetch(`${API_URL}/api/admin/exportar-pronosticos`);
         const data = await res.json();
         if (!data.ok) return;
 
@@ -556,3 +511,65 @@ document.getElementById("btnExportarPronosticos")?.addEventListener("click", asy
         alert("Error al exportar.");
     }
 });
+
+// ─── AUDIT LOGS VIEW ─────────────────────────────────────────────────────────
+async function inicializarLogsAdmin() {
+    const cuerpo = document.getElementById("tablaLogsCuerpo");
+    const btnRefrescar = document.getElementById("btnRefrescarLogs");
+    if (!cuerpo) return;
+
+    if (btnRefrescar) {
+        btnRefrescar.onclick = () => inicializarLogsAdmin();
+    }
+
+    try {
+        const res = await adminFetch(`${API_URL}/api/admin/logs`);
+        const data = await res.json();
+        if (!data.ok) {
+            cuerpo.innerHTML = `<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:#e74c3c;">Error: ${escapeHTML(data.message)}</td></tr>`;
+            return;
+        }
+
+        if (data.logs.length === 0) {
+            cuerpo.innerHTML = `<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:#b8c2d6;">No hay registros de actividad aún.</td></tr>`;
+            return;
+        }
+
+        cuerpo.innerHTML = data.logs.map(log => {
+            const fechaStr = new Date(log.Fecha).toLocaleString('es-MX');
+            const exitoBadge = log.Exito 
+                ? '<span style="color:#2ecc71; font-weight:bold;">✅ Éxito</span>' 
+                : `<span style="color:#e74c3c; font-weight:bold;" title="${escapeHTML(log.ErrorMessage || '')}">❌ Fallo: ${escapeHTML(log.ErrorMessage || 'Error desconocido')}</span>`;
+            
+            const partidoStr = log.PartidoId ? `Partido #${log.PartidoId}` : '-';
+            const usuarioStr = log.NombreUsuario ? `${escapeHTML(log.NombreUsuario)} (ID: ${log.IdUsuario})` : `Usuario ID: ${log.IdUsuario || '-'}`;
+
+            return `
+                <tr style="border-bottom:1px solid rgba(255,255,255,.05);">
+                    <td style="padding:.8rem; white-space:nowrap;">${fechaStr}</td>
+                    <td style="padding:.8rem;">${usuarioStr}</td>
+                    <td style="padding:.8rem; font-weight:bold; color:white;">${escapeHTML(log.Accion)}</td>
+                    <td style="padding:.8rem;">${partidoStr}</td>
+                    <td style="padding:.8rem; color:#fff;">${escapeHTML(log.Detalle || '-')}</td>
+                    <td style="padding:.8rem;">${exitoBadge}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error(error);
+        cuerpo.innerHTML = `<tr><td colspan="6" style="padding:1.5rem; text-align:center; color:#e74c3c;">Error al obtener logs de actividad.</td></tr>`;
+    }
+}
+
+function poblarDropdownCampeonAdmin(partidos) {
+    const selectCampeonReal = document.getElementById("selectCampeonReal");
+    if (!selectCampeonReal) return;
+
+    const paises = [...new Set(partidos.flatMap(p => [p.local, p.visitante]))].sort((a, b) => a.localeCompare(b));
+    const valorActual = selectCampeonReal.value;
+
+    selectCampeonReal.innerHTML = '<option value="">-- Selecciona país --</option>' +
+        paises.map(p => `<option value="${p}">${p}</option>`).join('');
+
+    if (valorActual) selectCampeonReal.value = valorActual;
+}

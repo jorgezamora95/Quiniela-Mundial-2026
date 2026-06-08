@@ -31,7 +31,9 @@ CREATE TABLE paquetes (
 );
 
 INSERT INTO paquetes (nombre, precio, goles, max_partidos, descripcion) VALUES
-('Premium',  1000.00, 110, 104, 'Acceso total a los 104 partidos'),
+('Premium',  1000.00, 120, 104, 'Acceso total a los 104 partidos'),
+('Estándar',  500.00,  60,  60, 'Acceso intermedio a 60 partidos'),
+('Básico',    250.00,  25,  25, 'Acceso básico a 25 partidos');
 
 -- Suscripciones
 CREATE TABLE suscripciones (

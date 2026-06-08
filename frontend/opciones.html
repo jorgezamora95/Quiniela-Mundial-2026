@@ -67,7 +67,11 @@
                             URL de foto de perfil
                         </label>
 
-                        <input type="url" id="inputNuevaFoto" placeholder="https://ejemplo.com/foto.jpg">
+                        <input type="text" id="inputNuevaFoto" placeholder="https://ejemplo.com/foto.jpg o base64">
+                        <span class="input-helper">
+                            ¿No tienes foto? Consigue un avatar en 
+                            <a href="https://robohash.org/#" target="_blank" rel="noopener noreferrer">Robohash.org</a>
+                        </span>
                     </div>
 
                     <button id="btnGuardarPerfil" class="btn-guardar-op">
@@ -85,6 +89,7 @@
 
     </main>
 
+    <script src="./js/config.js"></script>
     <script src="./js/layout.js"></script>
     <script src="./js/sesion.js"></script>
     <script src="./js/opciones.js"></script>

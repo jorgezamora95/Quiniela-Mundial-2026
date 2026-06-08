@@ -1,9 +1,12 @@
 const usuarioActivo = JSON.parse(localStorage.getItem("usuarioActivo"));
-if (!usuarioActivo) {
+const token = localStorage.getItem("token");
+
+if (!usuarioActivo || !token) {
+    localStorage.clear();
     window.location.href = "login.html";
-    return; // ← ESTO faltaba
+} else {
+    document.querySelectorAll("#Nombre, #nombreUsuario").forEach(elemento => {
+        elemento.textContent = usuarioActivo.nombre;
+    });
 }
-document.querySelectorAll("#Nombre, #nombreUsuario").forEach(elemento => {
-    elemento.textContent = usuarioActivo.nombre;
-});
 

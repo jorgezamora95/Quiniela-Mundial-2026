@@ -74,3 +74,15 @@ btnRegistro.addEventListener("click", async function () {
         btnRegistro.disabled = false;
     }
 });
+
+// Auto-fill invitation code from URL query parameters
+document.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (code) {
+        const inputCodigo = document.querySelector("#codigoInvitacion");
+        if (inputCodigo) {
+            inputCodigo.value = code;
+        }
+    }
+});

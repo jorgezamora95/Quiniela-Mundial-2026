@@ -3,6 +3,18 @@ let temporizadorMensaje;
 let suscripcionActiva     = false; // true si el admin activó la suscripción
 let pronosticosMemoria    = {};    // { [partidoId]: { ModificacionesUsadas } }
 
+// Helper fetch wrapper to attach x-user-token header
+async function authFetch(url, options = {}) {
+    const token = localStorage.getItem("token");
+    if (!options.headers) {
+        options.headers = {};
+    }
+    if (token) {
+        options.headers["x-user-token"] = token;
+    }
+    return fetch(url, options);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     inicializarQuiniela();
     iniciarTemporizador();
@@ -27,16 +39,20 @@ async function inicializarQuiniela() {
     try {
         const [resPartidos, resQuiniela, resDatos] = await Promise.all([
             fetch("./data/partidos.json"),
-            fetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`),
-            fetch(`${API_URL}/api/mis-datos/${idUsuario}`)
+            authFetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`),
+            authFetch(`${API_URL}/api/mis-datos/${idUsuario}`)
         ]);
 
         partidosGlobal     = await resPartidos.json();
+        poblarDropdownCampeon(partidosGlobal);
         const datosDB      = await resQuiniela.json();
         const datosSub     = await resDatos.json();
 
         // Suscripción activa = el admin le activó el paquete
         suscripcionActiva  = datosSub.ok && datosSub.suscripcion !== null;
+
+        // Mostrar y actualizar panel de goles si está activo
+        actualizarPanelGoles(datosSub.suscripcion, datosSub.partidosDesbloqueados);
 
         // Guardar modificaciones en memoria por partido
         if (datosSub.ok && datosSub.partidosDesbloqueados) {
@@ -66,7 +82,7 @@ function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
 
     partidosAMostrar.forEach((partido) => {
         const horaLimpia   = partido.hora.replace(" hrs", "");
-        const fechaPartido = new Date(`${partido.fecha} ${horaLimpia}:00`);
+        const fechaPartido = new Date(`${partido.fecha} ${horaLimpia}:00 GMT-0600`);
         const msHasta      = fechaPartido.getTime() - Date.now();
         const yaEmpezó     = msHasta <= 0;
         const memPartido   = pronosticosMemoria[partido.id] || null;
@@ -141,7 +157,7 @@ function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
                 btnGuardar.style.borderColor = "rgba(231,76,60,.6)";
                 btnGuardar.style.background  = "rgba(231,76,60,.08)";
             } else if (modRestantes === 2) {
-                btnGuardar.innerHTML      = `💾 <small style="color:#f1c40f;">Guardar (te quedará 1 cambio más)</small>`;
+                btnGuardar.innerHTML      = `💾 <small style="color:#f1c40f;">Guardar (te quedarán 2 cambios más)</small>`;
                 btnGuardar.style.borderColor = "rgba(241,196,15,.5)";
             } else {
                 btnGuardar.innerHTML = `💾 <small>Guardar pronóstico</small>`;
@@ -179,7 +195,7 @@ async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn
         btn.disabled  = true;
         btn.innerHTML = `⏳`;
 
-        const res = await fetch(`${API_URL}/api/guardar-quiniela`, {
+        const res = await authFetch(`${API_URL}/api/guardar-quiniela`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 idUsuario,
@@ -191,10 +207,14 @@ async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn
 
         if (data.ok) {
             // Actualizar modificaciones en memoria
-            if (!pronosticosMemoria[partido.id]) pronosticosMemoria[partido.id] = { ModificacionesUsadas: 0 };
-            pronosticosMemoria[partido.id].ModificacionesUsadas++;
+            if (data.partidosDesbloqueados) {
+                data.partidosDesbloqueados.forEach(d => {
+                    pronosticosMemoria[d.PartidoId] = { ModificacionesUsadas: d.ModificacionesUsadas };
+                });
+            }
             partido.golesLocal = gl; partido.golesVisitante = gv;
-            const nuevasMod = 3 - pronosticosMemoria[partido.id].ModificacionesUsadas;
+            const memPartido = pronosticosMemoria[partido.id] || { ModificacionesUsadas: 0 };
+            const nuevasMod = 3 - memPartido.ModificacionesUsadas;
             btn.disabled = false;
 
             if (nuevasMod === 0) {
@@ -206,7 +226,7 @@ async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn
                 btn.style.borderColor = "rgba(231,76,60,.6)";
                 btn.style.background  = "rgba(231,76,60,.08)";
             } else {
-                btn.innerHTML        = `💾 <small style="color:#f1c40f;">Guardar (te quedará 1 cambio más)</small>`;
+                btn.innerHTML        = `💾 <small style="color:#f1c40f;">Guardar (te quedarán 2 cambios más)</small>`;
                 btn.style.borderColor = "rgba(241,196,15,.5)";
                 btn.style.background  = "";
             }
@@ -226,32 +246,52 @@ async function inicializarPronosticoCampeon() {
     const panel = document.getElementById("panelCampeon");
     if (!panel) return;
 
+    const DEADLINE_CAMPEON = new Date("June 11, 2026 13:00:00 GMT-0600").getTime();
+    const yaInicioMundial = Date.now() >= DEADLINE_CAMPEON;
+
+    const selectCampeon = document.getElementById("selectCampeon");
+    const inputGL      = document.getElementById("inputCampeonGL");
+    const inputGV      = document.getElementById("inputCampeonGV");
+    const btnCampeon   = document.getElementById("btnGuardarCampeon");
+
     try {
-        const res  = await fetch(`${API_URL}/api/campeon/${idUsuario}`);
+        const res  = await authFetch(`${API_URL}/api/campeon/${idUsuario}`);
         const data = await res.json();
         if (data.ok && data.campeon) {
             const { SeleccionCampeon, GolesLocal, GolesVisitante } = data.campeon;
-            const inputCampeon = document.getElementById("inputCampeon");
-            const inputGL      = document.getElementById("inputCampeonGL");
-            const inputGV      = document.getElementById("inputCampeonGV");
-            if (inputCampeon) inputCampeon.value = SeleccionCampeon;
+            if (selectCampeon) {
+                if (selectCampeon.options.length <= 1 && partidosGlobal.length > 0) {
+                    poblarDropdownCampeon(partidosGlobal);
+                }
+                selectCampeon.value = SeleccionCampeon || "";
+            }
             if (inputGL)      inputGL.value      = GolesLocal ?? "";
             if (inputGV)      inputGV.value      = GolesVisitante ?? "";
         }
     } catch (e) { console.error(e); }
 
-    const btnCampeon = document.getElementById("btnGuardarCampeon");
+    if (yaInicioMundial) {
+        if (selectCampeon) selectCampeon.disabled = true;
+        if (inputGL)      inputGL.disabled = true;
+        if (inputGV)      inputGV.disabled = true;
+        if (btnCampeon) {
+            btnCampeon.disabled = true;
+            btnCampeon.innerHTML = `🔒 Bloqueado`;
+        }
+        return;
+    }
+
     if (!btnCampeon) return;
 
     btnCampeon.addEventListener("click", async () => {
         const idUsuario      = parseInt(localStorage.getItem("idUsuario"));
-        const seleccion      = document.getElementById("inputCampeon")?.value.trim();
+        const seleccion      = document.getElementById("selectCampeon")?.value;
         const golesLocal     = parseInt(document.getElementById("inputCampeonGL")?.value) ?? 0;
         const golesVisitante = parseInt(document.getElementById("inputCampeonGV")?.value) ?? 0;
-        if (!seleccion) { mostrarMensaje("⚠️ Escribe la selección campeona.", "error"); return; }
+        if (!seleccion) { mostrarMensaje("⚠️ Selecciona la selección campeona.", "error"); return; }
         try {
             btnCampeon.disabled = true;
-            const res  = await fetch(`${API_URL}/api/campeon`, {
+            const res  = await authFetch(`${API_URL}/api/campeon`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ idUsuario, seleccionCampeon: seleccion, golesLocal, golesVisitante })
             });
@@ -287,7 +327,7 @@ function obtenerEmojiBandera(codigoPais) {
 }
 
 function iniciarTemporizador() {
-    const fechaMundial    = new Date("June 11, 2026 13:00:00").getTime();
+    const fechaMundial    = new Date("June 11, 2026 13:00:00 GMT-0600").getTime();
     const contenedorReloj = document.querySelector(".timer-card h3");
     if (!contenedorReloj) return;
     const intervalo = setInterval(() => {
@@ -311,4 +351,73 @@ function cargarPerfilUsuario() {
         imgSidebar.src     = fotoGuardada;
         imgSidebar.onerror = () => { imgSidebar.src = "./img/user-icon.png"; };
     }
+}
+
+// ─── CONTROL DE GOLES Y DESBLOQUEO DE PARTIDOS ───────────────────────────────
+
+function actualizarPanelGoles(suscripcion, partidosDesbloqueados) {
+    const panel = document.getElementById("panelGoles");
+    if (panel) panel.style.display = "none";
+}
+
+async function desbloquearPartido(partido, btn) {
+    const idUsuario = parseInt(localStorage.getItem("idUsuario"));
+    const horaLimpia = partido.hora.replace(" hrs", "");
+    const fechaPartido = new Date(`${partido.fecha} ${horaLimpia}:00`);
+
+    if (!confirm(`¿Desbloquear el partido ${partido.local} vs ${partido.visitante}?`)) return;
+
+    try {
+        btn.disabled = true;
+        btn.innerHTML = `⏳`;
+
+        const res = await authFetch(`${API_URL}/api/desbloquear-partido`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                idUsuario,
+                partidoId: partido.id,
+                fechaPartido: fechaPartido.toISOString()
+            })
+        });
+
+        const data = await res.json();
+        mostrarMensaje(data.message, data.ok ? "success" : "error");
+
+        if (data.ok) {
+            // Actualizar localmente la memoria para evitar esperas
+            pronosticosMemoria[partido.id] = { ModificacionesUsadas: 0 };
+
+            // Recargar datos actualizados del backend
+            const [resQuiniela, resDatos] = await Promise.all([
+                authFetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`),
+                authFetch(`${API_URL}/api/mis-datos/${idUsuario}`)
+            ]);
+            const datosDB = await resQuiniela.json();
+            const datosSub = await resDatos.json();
+
+            actualizarPanelGoles(datosSub.suscripcion, datosSub.partidosDesbloqueados);
+            renderizarPartidos(partidosGlobal, datosDB.pronosticos);
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fa-solid fa-lock-open"></i> <small>Desbloquear</small>`;
+        }
+    } catch (error) {
+        mostrarMensaje("Error al conectar.", "error");
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-lock-open"></i> <small>Desbloquear</small>`;
+    }
+}
+
+function poblarDropdownCampeon(partidos) {
+    const selectCampeon = document.getElementById("selectCampeon");
+    if (!selectCampeon) return;
+
+    const paises = [...new Set(partidos.flatMap(p => [p.local, p.visitante]))].sort((a, b) => a.localeCompare(b));
+    const valorActual = selectCampeon.value;
+
+    selectCampeon.innerHTML = '<option value="">-- Selecciona país --</option>' +
+        paises.map(p => `<option value="${p}">${p}</option>`).join('');
+
+    if (valorActual) selectCampeon.value = valorActual;
 }
