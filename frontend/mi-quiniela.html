@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Quiniela - Mundial 2026</title>
     <link rel="stylesheet" href="./css/mi-quiniela.css">
-    <link rel="stylesheet" href="./css/index.css">
+    <link rel="stylesheet" href="./css/sidebar.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/6.6.6/css/flag-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -20,7 +20,7 @@
             <div class="page-header">
                 <div>
                     <h2>Mi Quiniela</h2>
-                    <p>Desbloquea los partidos que quieras pronosticar</p>
+                    <p>Registra tus pronósticos antes de que inicien los partidos</p>
                 </div>
                 <div class="timer-card">
                     <div class="timer-info">
@@ -37,33 +37,28 @@
                 </div>
             </div>
 
-            <!-- ─── TABS VISTA ─────────────────────────────────────────── -->
-            <div class="vista-tabs">
-                <button class="vista-tab vista-tab--activo" id="tabPronosticos" onclick="cambiarVista('pronosticos')">
-                    📋 Mis Pronósticos
+            <!-- ─── TABS VISTA PRINCIPAL ────────────────────────── -->
+            <div class="vista-tabs" style="margin-bottom:1rem;">
+                <button class="vista-tab vista-tab--activo" id="tabVistaGrupos" onclick="cambiarVistaMain('grupos')">
+                    ⚽ Fase de Grupos
                 </button>
-                <button class="vista-tab" id="tabGrupos" onclick="cambiarVista('grupos')">
-                    📊 Tabla de Grupos
+                <button class="vista-tab" id="tabVistaEliminatorios" onclick="cambiarVistaMain('eliminatorios')">
+                    🏆 Eliminatorias
                 </button>
             </div>
 
-            <!-- ─── VISTA: MIS PRONÓSTICOS ─────────────────────────────── -->
-            <div id="vistaPronosticos">
-                <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem; flex-wrap:wrap;">
-                    <div class="filtro-grupo">
-                        <label for="selectGrupo">Filtrar: </label>
-                        <select id="selectGrupo">
-                            <option value="TODOS">Todos</option>
-                            <option value="A">Grupo A</option><option value="B">Grupo B</option>
-                            <option value="C">Grupo C</option><option value="D">Grupo D</option>
-                            <option value="E">Grupo E</option><option value="F">Grupo F</option>
-                            <option value="G">Grupo G</option><option value="H">Grupo H</option>
-                            <option value="I">Grupo I</option><option value="J">Grupo J</option>
-                            <option value="K">Grupo K</option><option value="L">Grupo L</option>
-                        </select>
-                    </div>
-                </div>
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- VISTA: FASE DE GRUPOS                               -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <div id="vistaGrupos">
 
+                <!-- Tabs de grupos A-L -->
+                <div class="tabs-grupos-wrapper" id="tabsGruposQuiniela"></div>
+
+                <!-- Tabla simulación pronósticos usuario -->
+                <div id="tablaPronosticosGrupo" style="display:none;"></div>
+
+                <!-- Partidos -->
                 <div class="quiniela-card">
                     <div class="quiniela-row table-head">
                         <span>Partido</span>
@@ -116,12 +111,25 @@
                 </div>
             </div>
 
-            <!-- ─── VISTA: TABLA DE GRUPOS ──────────────────────────────── -->
-            <div id="vistaGrupos" style="display:none;">
-                <div class="tabs-grupos-wrapper" id="tabsGrupos"></div>
-                <div id="tablaGruposContainer">
-                    <div style="text-align:center;padding:2rem;color:#b8c2d6;">
-                        ⏳ Cargando tabla de grupos...
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- VISTA: ELIMINATORIOS                                -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <div id="vistaEliminatorios" style="display:none;">
+                <div style="background:rgba(241,196,15,.08); border:1px solid rgba(241,196,15,.2); border-radius:12px; padding:1rem 1.5rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem;">
+                    <span style="font-size:1.5rem;">ℹ️</span>
+                    <p style="margin:0; color:#b8c2d6; font-size:.9rem;">
+                        Los equipos se definirán a partir del <strong style="color:#f1c40f;">28 de Junio</strong> cuando termine la fase de grupos.
+                        Las fechas y sedes ya están confirmadas por la FIFA.
+                    </p>
+                </div>
+
+                <!-- Tabs de fases -->
+                <div class="tabs-grupos-wrapper" id="tabsFases"></div>
+
+                <!-- Partidos de la fase seleccionada -->
+                <div class="quiniela-card" style="padding:1rem;">
+                    <div id="fasesContainer">
+                        <div style="text-align:center;padding:2rem;color:#b8c2d6;">Cargando...</div>
                     </div>
                 </div>
             </div>
@@ -154,20 +162,23 @@
 
     <script src="./js/config.js"></script>
     <script src="./js/app.js"></script>
-    <script src="./js/grupos.js"></script>
+    <script src="./js/fases.js"></script>
     <script src="./js/layout.js"></script>
     <script src="./js/sesion.js"></script>
 
     <script>
-        function cambiarVista(vista) {
-            document.getElementById('vistaPronosticos').style.display = vista === 'pronosticos' ? 'block' : 'none';
-            document.getElementById('vistaGrupos').style.display      = vista === 'grupos'      ? 'block' : 'none';
-            document.getElementById('tabPronosticos').classList.toggle('vista-tab--activo', vista === 'pronosticos');
-            document.getElementById('tabGrupos').classList.toggle('vista-tab--activo', vista === 'grupos');
+        let eliminatoriosCargados = false;
 
-            // Cargar grupos solo la primera vez
-            if (vista === 'grupos' && Object.keys(standingsGlobal).length === 0) {
-                inicializarTablaGrupos();
+        function cambiarVistaMain(vista) {
+            document.getElementById('vistaGrupos').style.display        = vista === 'grupos'        ? 'block' : 'none';
+            document.getElementById('vistaEliminatorios').style.display  = vista === 'eliminatorios' ? 'block' : 'none';
+            document.getElementById('tabVistaGrupos').classList.toggle('vista-tab--activo',        vista === 'grupos');
+            document.getElementById('tabVistaEliminatorios').classList.toggle('vista-tab--activo', vista === 'eliminatorios');
+
+            // Cargar eliminatorios solo la primera vez
+            if (vista === 'eliminatorios' && !eliminatoriosCargados) {
+                eliminatoriosCargados = true;
+                inicializarFases();
             }
         }
     </script>

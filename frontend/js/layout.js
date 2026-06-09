@@ -31,22 +31,20 @@ function inicializarSidebarGlobal() {
     const menuPrincipal = document.getElementById("menuPrincipal");
 
     if (menuPrincipal && idUsuario === 1) {
-        const yaExiste = document.querySelector(".menu-item-admin");
+        const yaExiste = document.querySelector(".sidebar-link-admin");
 
         if (!yaExiste) {
-            const liAdmin = document.createElement("li");
-            liAdmin.className = "menu-item menu-item-static menu-item-admin";
-
-            liAdmin.innerHTML = `
-                <a href="admin.html" class="menu-link">
+            const adminLink = document.createElement("a");
+            adminLink.href      = "admin.html";
+            adminLink.className = "sidebar-link sidebar-link-admin";
+            adminLink.innerHTML = `
+                <span class="sidebar-link__icon">
                     <i class="fa-solid fa-user-gear"></i>
-                    <span>Admin</span>
-                </a>
+                </span>
+                <span class="sidebar-link__label">Admin</span>
             `;
-
-            menuPrincipal.appendChild(liAdmin);
+            menuPrincipal.appendChild(adminLink);
         }
-    
     }
 
     const btnLogout = document.getElementById("btnCerrarSesion");
@@ -83,7 +81,7 @@ function inicializarSidebarGlobal() {
             btnHamburger.innerHTML = '<i class="fa-solid fa-bars"></i>';
         });
 
-        document.querySelectorAll(".menu-link").forEach(link => {
+        document.querySelectorAll(".sidebar-link").forEach(link => {
             link.addEventListener("click", () => {
                 sidebar.classList.remove("sidebar--open");
                 overlay.classList.remove("sidebar-overlay--visible");
@@ -91,8 +89,16 @@ function inicializarSidebarGlobal() {
             });
         });
     }
+    const paginaActual = window.location.pathname.split('/').pop() || 'dashboard.html';
+    document.querySelectorAll('.sidebar-link').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href && paginaActual.includes(href.replace('.html',''))) {
+            link.classList.add('sidebar-link--active');
+        }
+    });
 
 }
+
 
 // ─── AUTO LOGOUT por inactividad (10 min) ────────────────────────────────────
 (function iniciarTimerInactividad() {

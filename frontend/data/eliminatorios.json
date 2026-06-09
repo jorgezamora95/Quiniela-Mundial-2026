@@ -1,0 +1,194 @@
+[
+  {
+    "id": 73, "fase": "16avos", "num": 73,
+    "fecha": "28 Jun 2026", "hora": "13:00 hrs",
+    "local": "2° Grupo A", "codLocal": "", "visitante": "2° Grupo B", "codVisitante": "",
+    "sede": "Los Ángeles"
+  },
+  {
+    "id": 74, "fase": "16avos", "num": 74,
+    "fecha": "29 Jun 2026", "hora": "18:30 hrs",
+    "local": "1° Grupo E", "codLocal": "", "visitante": "Mejor 3° A/B/C/D/F", "codVisitante": "",
+    "sede": "Boston"
+  },
+  {
+    "id": 75, "fase": "16avos", "num": 75,
+    "fecha": "29 Jun 2026", "hora": "21:00 hrs",
+    "local": "1° Grupo F", "codLocal": "", "visitante": "2° Grupo C", "codVisitante": "",
+    "sede": "Monterrey"
+  },
+  {
+    "id": 76, "fase": "16avos", "num": 76,
+    "fecha": "29 Jun 2026", "hora": "13:00 hrs",
+    "local": "1° Grupo C", "codLocal": "", "visitante": "2° Grupo F", "codVisitante": "",
+    "sede": "Houston"
+  },
+  {
+    "id": 77, "fase": "16avos", "num": 77,
+    "fecha": "30 Jun 2026", "hora": "19:00 hrs",
+    "local": "1° Grupo I", "codLocal": "", "visitante": "Mejor 3° C/D/F/G/H", "codVisitante": "",
+    "sede": "Nueva York/Nueva Jersey"
+  },
+  {
+    "id": 78, "fase": "16avos", "num": 78,
+    "fecha": "30 Jun 2026", "hora": "13:00 hrs",
+    "local": "2° Grupo E", "codLocal": "", "visitante": "2° Grupo I", "codVisitante": "",
+    "sede": "Dallas"
+  },
+  {
+    "id": 79, "fase": "16avos", "num": 79,
+    "fecha": "30 Jun 2026", "hora": "21:00 hrs",
+    "local": "1° Grupo A", "codLocal": "", "visitante": "Mejor 3° C/E/F/H/I", "codVisitante": "",
+    "sede": "Ciudad de México"
+  },
+  {
+    "id": 80, "fase": "16avos", "num": 80,
+    "fecha": "01 Jul 2026", "hora": "14:00 hrs",
+    "local": "1° Grupo L", "codLocal": "", "visitante": "Mejor 3° E/H/I/J/K", "codVisitante": "",
+    "sede": "Atlanta"
+  },
+  {
+    "id": 81, "fase": "16avos", "num": 81,
+    "fecha": "01 Jul 2026", "hora": "19:00 hrs",
+    "local": "1° Grupo D", "codLocal": "", "visitante": "Mejor 3° B/E/F/I/J", "codVisitante": "",
+    "sede": "San Francisco"
+  },
+  {
+    "id": 82, "fase": "16avos", "num": 82,
+    "fecha": "01 Jul 2026", "hora": "15:00 hrs",
+    "local": "1° Grupo G", "codLocal": "", "visitante": "Mejor 3° A/E/H/I/J", "codVisitante": "",
+    "sede": "Seattle"
+  },
+  {
+    "id": 83, "fase": "16avos", "num": 83,
+    "fecha": "02 Jul 2026", "hora": "21:00 hrs",
+    "local": "2° Grupo K", "codLocal": "", "visitante": "2° Grupo L", "codVisitante": "",
+    "sede": "Toronto"
+  },
+  {
+    "id": 84, "fase": "16avos", "num": 84,
+    "fecha": "02 Jul 2026", "hora": "14:00 hrs",
+    "local": "1° Grupo H", "codLocal": "", "visitante": "2° Grupo J", "codVisitante": "",
+    "sede": "Los Ángeles"
+  },
+  {
+    "id": 85, "fase": "16avos", "num": 85,
+    "fecha": "02 Jul 2026", "hora": "22:00 hrs",
+    "local": "1° Grupo B", "codLocal": "", "visitante": "Mejor 3° E/F/G/I/J", "codVisitante": "",
+    "sede": "Vancouver"
+  },
+  {
+    "id": 86, "fase": "16avos", "num": 86,
+    "fecha": "03 Jul 2026", "hora": "20:00 hrs",
+    "local": "1° Grupo J", "codLocal": "", "visitante": "2° Grupo H", "codVisitante": "",
+    "sede": "Miami"
+  },
+  {
+    "id": 87, "fase": "16avos", "num": 87,
+    "fecha": "03 Jul 2026", "hora": "22:30 hrs",
+    "local": "1° Grupo K", "codLocal": "", "visitante": "Mejor 3° D/E/I/J/L", "codVisitante": "",
+    "sede": "Kansas City"
+  },
+  {
+    "id": 88, "fase": "16avos", "num": 88,
+    "fecha": "03 Jul 2026", "hora": "15:00 hrs",
+    "local": "2° Grupo D", "codLocal": "", "visitante": "2° Grupo G", "codVisitante": "",
+    "sede": "Dallas"
+  },
+  {
+    "id": 89, "fase": "8vos", "num": 89,
+    "fecha": "04 Jul 2026", "hora": "19:00 hrs",
+    "local": "G74", "codLocal": "", "visitante": "G77", "codVisitante": "",
+    "sede": "Philadelphia"
+  },
+  {
+    "id": 90, "fase": "8vos", "num": 90,
+    "fecha": "04 Jul 2026", "hora": "14:00 hrs",
+    "local": "G73", "codLocal": "", "visitante": "G75", "codVisitante": "",
+    "sede": "Houston"
+  },
+  {
+    "id": 91, "fase": "8vos", "num": 91,
+    "fecha": "05 Jul 2026", "hora": "18:00 hrs",
+    "local": "G76", "codLocal": "", "visitante": "G78", "codVisitante": "",
+    "sede": "Nueva York/Nueva Jersey"
+  },
+  {
+    "id": 92, "fase": "8vos", "num": 92,
+    "fecha": "05 Jul 2026", "hora": "20:00 hrs",
+    "local": "G79", "codLocal": "", "visitante": "G80", "codVisitante": "",
+    "sede": "Ciudad de México"
+  },
+  {
+    "id": 93, "fase": "8vos", "num": 93,
+    "fecha": "06 Jul 2026", "hora": "16:00 hrs",
+    "local": "G83", "codLocal": "", "visitante": "G84", "codVisitante": "",
+    "sede": "Dallas"
+  },
+  {
+    "id": 94, "fase": "8vos", "num": 94,
+    "fecha": "06 Jul 2026", "hora": "19:00 hrs",
+    "local": "G81", "codLocal": "", "visitante": "G82", "codVisitante": "",
+    "sede": "Seattle"
+  },
+  {
+    "id": 95, "fase": "8vos", "num": 95,
+    "fecha": "07 Jul 2026", "hora": "14:00 hrs",
+    "local": "G86", "codLocal": "", "visitante": "G88", "codVisitante": "",
+    "sede": "Atlanta"
+  },
+  {
+    "id": 96, "fase": "8vos", "num": 96,
+    "fecha": "07 Jul 2026", "hora": "15:00 hrs",
+    "local": "G85", "codLocal": "", "visitante": "G87", "codVisitante": "",
+    "sede": "Vancouver"
+  },
+  {
+    "id": 97, "fase": "Cuartos", "num": 97,
+    "fecha": "09 Jul 2026", "hora": "18:00 hrs",
+    "local": "G89", "codLocal": "", "visitante": "G90", "codVisitante": "",
+    "sede": "Boston"
+  },
+  {
+    "id": 98, "fase": "Cuartos", "num": 98,
+    "fecha": "10 Jul 2026", "hora": "14:00 hrs",
+    "local": "G93", "codLocal": "", "visitante": "G94", "codVisitante": "",
+    "sede": "Los Ángeles"
+  },
+  {
+    "id": 99, "fase": "Cuartos", "num": 99,
+    "fecha": "11 Jul 2026", "hora": "19:00 hrs",
+    "local": "G91", "codLocal": "", "visitante": "G92", "codVisitante": "",
+    "sede": "Miami"
+  },
+  {
+    "id": 100, "fase": "Cuartos", "num": 100,
+    "fecha": "11 Jul 2026", "hora": "22:00 hrs",
+    "local": "G95", "codLocal": "", "visitante": "G96", "codVisitante": "",
+    "sede": "Kansas City"
+  },
+  {
+    "id": 101, "fase": "Semis", "num": 101,
+    "fecha": "14 Jul 2026", "hora": "16:00 hrs",
+    "local": "G97", "codLocal": "", "visitante": "G98", "codVisitante": "",
+    "sede": "Dallas"
+  },
+  {
+    "id": 102, "fase": "Semis", "num": 102,
+    "fecha": "15 Jul 2026", "hora": "17:00 hrs",
+    "local": "G99", "codLocal": "", "visitante": "G100", "codVisitante": "",
+    "sede": "Atlanta"
+  },
+  {
+    "id": 103, "fase": "3er Lugar", "num": 103,
+    "fecha": "18 Jul 2026", "hora": "19:00 hrs",
+    "local": "Perdedor G101", "codLocal": "", "visitante": "Perdedor G102", "codVisitante": "",
+    "sede": "Miami"
+  },
+  {
+    "id": 104, "fase": "Final", "num": 104,
+    "fecha": "19 Jul 2026", "hora": "17:00 hrs",
+    "local": "G101", "codLocal": "", "visitante": "G102", "codVisitante": "",
+    "sede": "Nueva York/Nueva Jersey"
+  }
+]

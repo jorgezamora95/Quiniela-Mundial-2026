@@ -28,6 +28,7 @@ btnEntrar.addEventListener("click", async function () {
         localStorage.setItem("usuarioActivo", JSON.stringify(data.usuario));
         localStorage.setItem("Nombre", data.usuario.nombre);
         localStorage.setItem("FotoUrl", data.usuario.fotoUrl || "");
+    
         if (data.token) {
             localStorage.setItem("token", data.token);
         }
