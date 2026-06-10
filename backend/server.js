@@ -7,50 +7,9 @@ const { query } = require('./db');
 
 const app = express();
 
-const allowedOrigins = [
-    "http://127.0.0.1:5500",
-    "http://localhost:5500",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost",
-    "http://localhost:80",
-    "http://10.200.20.102:8080",
-    "http://10.200.20.102",
-    "http://10.200.20.102:3000",
-    process.env.FRONTEND_URL,
-    `http://${process.env.FRONTEND_HOST || "localhost"}:8080`
-].filter(Boolean);
-
 app.use(cors({
-    origin: (origin, callback) => {
-        // Permitir solicitudes sin origen (como curl o apps móviles) y orígenes locales null (archivo abierto vía file://)
-        if (!origin || origin === "null") {
-            return callback(null, true);
-        }
-        
-        // Permitir orígenes en la lista blanca estática
-        if (allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-        
-        // Permitir dinámicamente cualquier puerto de localhost, 127.0.0.1 y cualquier subdominio de Vercel
-        try {
-            const parsedUrl = new URL(origin);
-            if (
-                parsedUrl.hostname === "localhost" ||
-                parsedUrl.hostname === "127.0.0.1" ||
-                parsedUrl.hostname.endsWith(".vercel.app")
-            ) {
-                return callback(null, true);
-            }
-        } catch (err) {
-            // Ignorar errores de URLs malformadas
-        }
-        
-        callback(new Error("No permitido por CORS"));
-    }
+    origin: true,
+    credentials: true
 }));
 
 app.use(express.json({ limit: '100kb' }));
