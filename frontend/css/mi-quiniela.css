@@ -1150,3 +1150,52 @@ body{
         display: none;
     }
 }
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .3; }
+}
+
+.badge-estado-partido.en-juego {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+  background: rgba(231,76,60,.12);
+  border: 1px solid rgba(231,76,60,.35);
+  color: #e74c3c;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.badge-estado-partido.finalizado {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(46,204,113,.12);
+    border: 1px solid rgba(46,204,113,.35);
+    color: #2ecc71;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.badge-estado-partido.en-juego::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(231,76,60,.35), transparent);
+  animation: shimmer 1.6s ease-in-out infinite;
+}

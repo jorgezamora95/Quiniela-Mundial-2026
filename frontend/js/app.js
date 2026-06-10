@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
     iniciarTemporizador();
     cargarPerfilUsuario();
     inicializarPronosticoCampeon();
+    iniciarViglantePartidos();
 });
 
 async function inicializarQuiniela() {
@@ -509,4 +510,73 @@ function poblarDropdownCampeon(partidos) {
     selectCampeon.innerHTML = '<option value="">-- Selecciona país --</option>' +
         paises.map(p => `<option value="${p}">${p}</option>`).join('');
     if (valorActual) selectCampeon.value = valorActual;
+}
+// ─── VIGILANTE DE PARTIDOS EN TIEMPO REAL ────────────────────────────────────
+// Revisa cada 30 segundos si algún partido acaba de empezar y bloquea su fila
+// Cache de resultados para no llamar cada tick
+let resultadosCache = {};
+
+async function fetchResultados() {
+    try {
+        const res  = await fetch(`${API_URL}/api/obtener-resultados`);
+        const data = await res.json();
+        if (data.ok) {
+            resultadosCache = {};
+            data.resultados.forEach(r => { resultadosCache[r.PartidoId] = r; });
+        }
+    } catch (e) { console.error('Vigilante: error al obtener resultados', e); }
+}
+
+function iniciarViglantePartidos() {
+    // Cargar resultados inmediatamente al arrancar
+    fetchResultados();
+
+    setInterval(async () => {
+        if (!partidosGlobal.length) return;
+
+        // Refrescar resultados en cada tick
+        await fetchResultados();
+
+        partidosGlobal.forEach(partido => {
+            const horaLimpia   = partido.hora.replace(' hrs', '');
+            const fechaPartido = new Date(`${partido.fecha} ${horaLimpia}:00 GMT-0600`);
+            const yaEmpezó     = fechaPartido.getTime() - Date.now() <= 0;
+            if (!yaEmpezó) return;
+
+            const row = document.querySelector(`#quinielaContainer .quiniela-row[data-id="${partido.id}"]`);
+            if (!row) return;
+
+            const inputLocal     = row.querySelector('.goles-local');
+            const inputVisitante = row.querySelector('.goles-visitante');
+            const estadoCol      = row.querySelector('.estado-col');
+
+            // Siempre bloquear inputs si ya empezó
+            if (inputLocal)     inputLocal.readOnly     = true;
+            if (inputVisitante) inputVisitante.readOnly = true;
+            row.style.opacity = '0.4';
+
+            // ¿Ya hay resultado registrado por el admin?
+            const resultado = resultadosCache[partido.id];
+            if (resultado) {
+                // Finalizado — mostrar marcador real
+                if (estadoCol) {
+                    estadoCol.innerHTML = `
+                        <span class="badge-estado-partido finalizado">
+                            ✅ ${resultado.GolesLocal} - ${resultado.GolesVisitante}
+                        </span>`;
+                }
+            } else {
+                // En juego — solo si no muestra ya Finalizado
+                const badgeActual = estadoCol?.querySelector('.badge-estado-partido');
+                const esFinali    = badgeActual?.classList.contains('finalizado');
+                if (!esFinali && estadoCol) {
+                    estadoCol.innerHTML = `
+                        <span class="badge-estado-partido en-juego">
+                            <span style="width:6px;height:6px;border-radius:50%;background:#e74c3c;flex-shrink:0;animation:pulse 1.4s ease-in-out infinite;"></span>
+                            En juego
+                        </span>`;
+                }
+            }
+        });
+    }, 30_000);
 }
