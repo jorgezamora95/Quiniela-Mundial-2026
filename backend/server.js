@@ -25,8 +25,31 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) callback(null, true);
-        else callback(new Error("No permitido por CORS"));
+        // Permitir solicitudes sin origen (como curl o apps móviles) y orígenes locales null (archivo abierto vía file://)
+        if (!origin || origin === "null") {
+            return callback(null, true);
+        }
+        
+        // Permitir orígenes en la lista blanca estática
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        
+        // Permitir dinámicamente cualquier puerto de localhost, 127.0.0.1 y cualquier subdominio de Vercel
+        try {
+            const parsedUrl = new URL(origin);
+            if (
+                parsedUrl.hostname === "localhost" ||
+                parsedUrl.hostname === "127.0.0.1" ||
+                parsedUrl.hostname.endsWith(".vercel.app")
+            ) {
+                return callback(null, true);
+            }
+        } catch (err) {
+            // Ignorar errores de URLs malformadas
+        }
+        
+        callback(new Error("No permitido por CORS"));
     }
 }));
 
