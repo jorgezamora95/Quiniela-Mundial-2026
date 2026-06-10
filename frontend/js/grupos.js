@@ -15,7 +15,7 @@ async function inicializarTablaGrupos() {
 
         const [resStandings, resPuntos] = await Promise.all([
             fetch(`${API_URL}/api/standings`),
-            fetch(`${API_URL}/api/mis-puntos-grupo/${idUsuario}`)
+            authFetch(`${API_URL}/api/mis-puntos-grupo/${idUsuario}`)
         ]);
 
         const dataStandings = await resStandings.json();

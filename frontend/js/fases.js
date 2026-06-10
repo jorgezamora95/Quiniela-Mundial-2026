@@ -174,13 +174,14 @@ function crearFilaPartidoFase(partido) {
         btn.className = 'btn-guardar-fila';
 
         if (modRestantes === 1) {
-            btn.innerHTML        = `💾 <small style="color:#e74c3c;">⚠️ Último</small>`;
+            btn.innerHTML        = `💾 <small style="color:#e74c3c;">⚠️ Último cambio disponible</small>`;
             btn.style.borderColor = 'rgba(231,76,60,.6)';
+            btn.style.background  = 'rgba(231,76,60,.08)';
         } else if (modRestantes === 2) {
-            btn.innerHTML        = `💾 <small style="color:#f1c40f;">Te queda 1</small>`;
+            btn.innerHTML        = `💾 <small style="color:#f1c40f;">Guardar (te quedarán 2 cambios más)</small>`;
             btn.style.borderColor = 'rgba(241,196,15,.5)';
         } else {
-            btn.innerHTML = `💾 <small>Guardar</small>`;
+            btn.innerHTML = `💾 <small>Guardar pronóstico</small>`;
         }
 
         btn.addEventListener('click', () =>
