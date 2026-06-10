@@ -174,6 +174,7 @@ function renderizarPanelBolsa(data) {
     if (!container) return;
 
     const fmt = n => `$${Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN`;
+    const cfg = data.config || { pctAdmin: 15, pctPremio1: 50, pctPremio2: 30, pctPremio3: 20 };
 
     container.innerHTML = `
         <!-- Resumen financiero -->
@@ -184,54 +185,149 @@ function renderizarPanelBolsa(data) {
                 <small style="color:#b8c2d6;">${data.totalParticipantes} participantes</small>
             </div>
             <div style="text-align:center;">
-                <small style="color:#b8c2d6;">💰 Bolsa de premios (85%)</small>
+                <small style="color:#b8c2d6;">💰 Bolsa de premios (${(100 - cfg.pctAdmin).toFixed(0)}%)</small>
                 <h2 style="margin:.3rem 0; color:#2ecc71;">${fmt(data.bolsaPremios)}</h2>
             </div>
             <div style="text-align:center;">
-                <small style="color:#b8c2d6;">⚙️ Cuota admin (15%)</small>
+                <small style="color:#b8c2d6;">⚙️ Cuota admin (${cfg.pctAdmin}%)</small>
                 <h2 style="margin:.3rem 0; color:#f1c40f;">${fmt(data.cuotaAdmin)}</h2>
             </div>
         </div>
 
         <!-- Distribución de premios -->
-        <div style="padding:1.5rem;">
+        <div style="padding:1.5rem; border-bottom:1px solid rgba(255,255,255,.07);">
             <h3 style="margin:0 0 1rem; color:#b8c2d6;">Distribución actual de premios</h3>
-            ${data.distribucion.map(g => `
+            ${data.distribucion.length > 0 ? data.distribucion.map(g => `
                 <div style="display:flex; justify-content:space-between; align-items:center; padding:.8rem; background:rgba(255,255,255,.04); border-radius:8px; margin-bottom:.5rem;">
                     <div style="display:flex; align-items:center; gap:.8rem;">
                         <span style="font-size:1.5rem;">${g.Posicion===1?'🥇':g.Posicion===2?'🥈':'🥉'}</span>
                         <div>
-                            <strong>${g.Nombre}</strong>
+                            <strong>${escapeHTML(g.Nombre)}</strong>
                             <small style="display:block; color:#b8c2d6;">${g.Puntos} pts · ${g.porcentaje}% de la bolsa</small>
                         </div>
                     </div>
                     <strong style="color:#2ecc71; font-size:1.2rem;">${fmt(g.montoPremio)}</strong>
                 </div>
-            `).join('')}
-
-            <!-- Premios base si nadie juega aún -->
-            ${data.distribucion.length === 0 ? `
-                <div style="color:#b8c2d6; text-align:center; padding:1rem;">Sin puntos registrados aún.</div>
-                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1rem;">
+            `).join('') : `
+                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem;">
                     <div style="text-align:center; padding:1rem; background:rgba(255,255,255,.04); border-radius:8px;">
                         <span style="font-size:1.5rem;">🥇</span>
                         <p style="margin:.3rem 0; color:#2ecc71; font-weight:bold;">${fmt(data.premio1)}</p>
-                        <small style="color:#b8c2d6;">50% · 1° lugar</small>
+                        <small style="color:#b8c2d6;">${cfg.pctPremio1}% · 1° lugar</small>
                     </div>
                     <div style="text-align:center; padding:1rem; background:rgba(255,255,255,.04); border-radius:8px;">
                         <span style="font-size:1.5rem;">🥈</span>
                         <p style="margin:.3rem 0; color:#2ecc71; font-weight:bold;">${fmt(data.premio2)}</p>
-                        <small style="color:#b8c2d6;">30% · 2° lugar</small>
+                        <small style="color:#b8c2d6;">${cfg.pctPremio2}% · 2° lugar</small>
                     </div>
                     <div style="text-align:center; padding:1rem; background:rgba(255,255,255,.04); border-radius:8px;">
                         <span style="font-size:1.5rem;">🥉</span>
                         <p style="margin:.3rem 0; color:#2ecc71; font-weight:bold;">${fmt(data.premio3)}</p>
-                        <small style="color:#b8c2d6;">20% · 3° lugar</small>
+                        <small style="color:#b8c2d6;">${cfg.pctPremio3}% · 3° lugar</small>
                     </div>
                 </div>
-            ` : ''}
+            `}
+        </div>
+
+        <!-- ── Configurar porcentajes ── -->
+        <div style="padding:1.5rem;">
+            <h3 style="margin:0 0 .3rem; color:#b8c2d6;">⚙️ Configurar Porcentajes</h3>
+            <p style="color:#7a8aa0; font-size:.82rem; margin:0 0 1rem;">
+                Los premios (1°, 2°, 3°) deben sumar exactamente 100%. La cuota admin máxima es 50%.
+            </p>
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1rem;">
+                <div>
+                    <label style="color:#b8c2d6; font-size:.82rem; display:block; margin-bottom:.3rem;">⚙️ Cuota Admin %</label>
+                    <input type="number" id="inputPctAdmin" min="0" max="50" step="0.5"
+                        value="${cfg.pctAdmin}"
+                        style="width:100%; background:#0d1f33; color:white; border:1px solid rgba(255,255,255,.2); padding:.5rem .8rem; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="color:#b8c2d6; font-size:.82rem; display:block; margin-bottom:.3rem;">🥇 1° Lugar %</label>
+                    <input type="number" id="inputPctPremio1" min="0" max="100" step="0.5"
+                        value="${cfg.pctPremio1}"
+                        style="width:100%; background:#0d1f33; color:white; border:1px solid rgba(255,255,255,.2); padding:.5rem .8rem; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="color:#b8c2d6; font-size:.82rem; display:block; margin-bottom:.3rem;">🥈 2° Lugar %</label>
+                    <input type="number" id="inputPctPremio2" min="0" max="100" step="0.5"
+                        value="${cfg.pctPremio2}"
+                        style="width:100%; background:#0d1f33; color:white; border:1px solid rgba(255,255,255,.2); padding:.5rem .8rem; border-radius:8px;">
+                </div>
+                <div>
+                    <label style="color:#b8c2d6; font-size:.82rem; display:block; margin-bottom:.3rem;">🥉 3° Lugar %</label>
+                    <input type="number" id="inputPctPremio3" min="0" max="100" step="0.5"
+                        value="${cfg.pctPremio3}"
+                        style="width:100%; background:#0d1f33; color:white; border:1px solid rgba(255,255,255,.2); padding:.5rem .8rem; border-radius:8px;">
+                </div>
+            </div>
+
+            <!-- Indicador suma premios en tiempo real -->
+            <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
+                <span style="color:#b8c2d6; font-size:.85rem;">Suma premios:</span>
+                <span id="sumaPremiosIndicador" style="font-weight:bold; font-size:.95rem;">
+                    ${(cfg.pctPremio1 + cfg.pctPremio2 + cfg.pctPremio3).toFixed(1)}%
+                </span>
+            </div>
+
+            <button id="btnGuardarConfigBolsa" class="btn-registrar-fila"
+                style="background:#16883f; color:#fff; font-weight:bold; cursor:pointer; padding:.6rem 1.5rem;">
+                💾 Guardar configuración
+            </button>
+            <span id="msgConfigBolsa" style="margin-left:1rem; font-size:.9rem; font-weight:bold;"></span>
         </div>
     `;
+
+    // ── Indicador en tiempo real ──
+    const inputs = ['inputPctPremio1', 'inputPctPremio2', 'inputPctPremio3'];
+    const indicador = document.getElementById('sumaPremiosIndicador');
+    const actualizarSuma = () => {
+        const suma = inputs.reduce((acc, id) => acc + (parseFloat(document.getElementById(id)?.value) || 0), 0);
+        indicador.textContent = suma.toFixed(1) + '%';
+        indicador.style.color = Math.abs(suma - 100) < 0.01 ? '#2ecc71' : '#e74c3c';
+    };
+    inputs.forEach(id => document.getElementById(id)?.addEventListener('input', actualizarSuma));
+    actualizarSuma();
+
+    // ── Guardar config ──
+    document.getElementById('btnGuardarConfigBolsa')?.addEventListener('click', async () => {
+        const msg       = document.getElementById('msgConfigBolsa');
+        const pctAdmin  = parseFloat(document.getElementById('inputPctAdmin')?.value);
+        const pct1      = parseFloat(document.getElementById('inputPctPremio1')?.value);
+        const pct2      = parseFloat(document.getElementById('inputPctPremio2')?.value);
+        const pct3      = parseFloat(document.getElementById('inputPctPremio3')?.value);
+
+        const suma = pct1 + pct2 + pct3;
+        if (Math.abs(suma - 100) > 0.01) {
+            msg.textContent = `⛔ Los premios suman ${suma.toFixed(1)}%, deben ser 100%.`;
+            msg.style.color = '#e74c3c';
+            return;
+        }
+        if (pctAdmin > 50) {
+            msg.textContent = '⛔ La cuota admin no puede superar 50%.';
+            msg.style.color = '#e74c3c';
+            return;
+        }
+
+        try {
+            const btn = document.getElementById('btnGuardarConfigBolsa');
+            btn.disabled = true;
+            const res  = await adminFetch(`${API_URL}/api/admin/config-bolsa`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ pctAdmin, pctPremio1: pct1, pctPremio2: pct2, pctPremio3: pct3 })
+            });
+            const data = await res.json();
+            msg.textContent = data.message;
+            msg.style.color = data.ok ? '#2ecc71' : '#e74c3c';
+            if (data.ok) setTimeout(() => inicializarPanelBolsa(), 800);
+        } catch (e) {
+            msg.textContent = '⚠️ Error de conexión.';
+            msg.style.color = '#e74c3c';
+        } finally {
+            document.getElementById('btnGuardarConfigBolsa').disabled = false;
+        }
+    });
 }
 
 // ─── PANEL SUSCRIPCIONES ──────────────────────────────────────────────────────

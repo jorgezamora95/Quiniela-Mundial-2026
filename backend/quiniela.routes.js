@@ -2,7 +2,7 @@ const express    = require('express');
 const router     = express.Router();
 const { z }      = require('zod');
 const nodemailer = require('nodemailer');
-const { query } = require('./db');
+const { sql, poolPromise } = require('./db');
 const path       = require('path');
 const fs         = require('fs');
 const crypto     = require('crypto');
@@ -17,14 +17,39 @@ try {
 
 async function registrarLogActividad({ idUsuario, accion, partidoId, detalle, exito, errorMessage }) {
     try {
-        await query(
-            `INSERT INTO logs_actividad (id_usuario,accion,partido_id,detalle,exito,error_message)
-             VALUES ($1,$2,$3,$4,$5,$6)`,
-            [idUsuario || null, accion, partidoId || null, detalle || null, exito ?? true, errorMessage || null]
-        );
+        const pool = await poolPromise;
+        await pool.request()
+            .input('IdUsuario',    sql.Int,          idUsuario || null)
+            .input('Accion',       sql.NVarChar(100), accion)
+            .input('PartidoId',    sql.Int,          partidoId || null)
+            .input('Detalle',      sql.NVarChar(500), detalle || null)
+            .input('Exito',        sql.Bit,          exito ?? true)
+            .input('ErrorMessage', sql.NVarChar(500), errorMessage || null)
+            .query(`INSERT INTO dbo.LogsActividad (IdUsuario,Accion,PartidoId,Detalle,Exito,ErrorMessage) VALUES (@IdUsuario,@Accion,@PartidoId,@Detalle,@Exito,@ErrorMessage)`);
     } catch (err) {
         console.error('❌ Error al registrar log:', err);
     }
+}
+
+
+async function sellarPronostico(pool, idUsuario, partidoId, golesLocal, golesVisitante) {
+    const fecha = new Date();
+    const data  = `${idUsuario}|${partidoId}|${golesLocal}|${golesVisitante}|${fecha.toISOString()}`;
+    const hash  = crypto.createHmac('sha256', process.env.ADMIN_SECRET || 'default-admin-secret-2026-torreslab')
+                        .update(data).digest('hex');
+    await pool.request()
+        .input('IdUsuario', sql.Int,          idUsuario)
+        .input('PartidoId', sql.Int,          partidoId)
+        .input('Fecha',     sql.DateTime,     fecha)
+        .input('Hash',      sql.NVarChar(64), hash)
+        .query(`
+            UPDATE dbo.Pronosticos
+            SET FechaRegistro      = CASE WHEN FechaRegistro IS NULL THEN @Fecha ELSE FechaRegistro END,
+                FechaActualizacion = @Fecha,
+                HashIntegridad     = @Hash,
+                ModificadoPor      = NULL
+            WHERE IdUsuario = @IdUsuario AND PartidoId = @PartidoId
+        `);
 }
 
 function validarTokenAdmin(req, res, next) {
@@ -119,12 +144,13 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
         const body = req.body;
         idUsuario  = body.idUsuario;
         const { pronosticos } = body;
-        const sub = await query(
-            `SELECT id_suscripcion FROM suscripciones WHERE id_usuario=$1 AND activa=TRUE`,
-            [idUsuario]
-        );
+        const pool = await poolPromise;
 
-        if (sub.rows.length === 0) {
+        const sub = await pool.request()
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`SELECT IdSuscripcion FROM dbo.Suscripciones WHERE IdUsuario=@IdUsuario AND Activa=1`);
+
+        if (sub.recordset.length === 0) {
             const errMsg = '⛔ No tienes suscripción activa.';
             await registrarLogActividad({ idUsuario, accion:'guardar_quiniela', detalle:'Sin suscripción activa', exito:false, errorMessage:errMsg });
             return res.status(403).json({ ok: false, message: errMsg });
@@ -152,16 +178,15 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
                 continue;
             }
 
-            const desbloq = await query(
-                `SELECT id_desbloqueo AS "IdDesbloqueo", modificaciones_usadas AS "ModificacionesUsadas"
-                 FROM partidos_desbloqueados WHERE id_usuario=$1 AND partido_id=$2`,
-                [idUsuario, pro.partidoId]
-            );
+            const desbloq = await pool.request()
+                .input('IdUsuario', sql.Int, idUsuario)
+                .input('PartidoId', sql.Int, pro.partidoId)
+                .query(`SELECT IdDesbloqueo, ModificacionesUsadas FROM dbo.PartidosDesbloqueados WHERE IdUsuario=@IdUsuario AND PartidoId=@PartidoId`);
 
             let modUsadas = 0, idDesbloqueo = null;
-            if (desbloq.rows.length > 0) {
-                modUsadas    = desbloq.rows[0].ModificacionesUsadas;
-                idDesbloqueo = desbloq.rows[0].IdDesbloqueo;
+            if (desbloq.recordset.length > 0) {
+                modUsadas    = desbloq.recordset[0].ModificacionesUsadas;
+                idDesbloqueo = desbloq.recordset[0].IdDesbloqueo;
             }
 
             if (modUsadas >= 3) {
@@ -172,42 +197,43 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
             }
 
             // Guardar pronóstico
-            await query(
-                `INSERT INTO pronosticos (id_usuario,partido_id,goles_local,goles_visitante)
-                 VALUES ($1,$2,$3,$4)
-                 ON CONFLICT (id_usuario,partido_id) DO UPDATE SET goles_local=$3, goles_visitante=$4`,
-                [idUsuario, pro.partidoId, pro.golesLocal, pro.golesVisitante]
-            );
+            await pool.request()
+                .input('IdUsuario',      sql.Int, idUsuario)
+                .input('PartidoId',      sql.Int, pro.partidoId)
+                .input('GolesLocal',     sql.Int, pro.golesLocal)
+                .input('GolesVisitante', sql.Int, pro.golesVisitante)
+                .query(`
+                    IF EXISTS (SELECT 1 FROM dbo.Pronosticos WHERE IdUsuario=@IdUsuario AND PartidoId=@PartidoId)
+                        UPDATE dbo.Pronosticos SET GolesLocal=@GolesLocal, GolesVisitante=@GolesVisitante WHERE IdUsuario=@IdUsuario AND PartidoId=@PartidoId
+                    ELSE
+                        INSERT INTO dbo.Pronosticos (IdUsuario,PartidoId,GolesLocal,GolesVisitante) VALUES (@IdUsuario,@PartidoId,@GolesLocal,@GolesVisitante)
+                `);
 
             if (idDesbloqueo) {
-                await query(
-                    `UPDATE partidos_desbloqueados SET modificaciones_usadas=modificaciones_usadas+1 WHERE id_desbloqueo=$1`,
-                    [idDesbloqueo]
-                );
+                await pool.request()
+                    .input('IdDesbloqueo', sql.Int, idDesbloqueo)
+                    .query(`UPDATE dbo.PartidosDesbloqueados SET ModificacionesUsadas=ModificacionesUsadas+1 WHERE IdDesbloqueo=@IdDesbloqueo`);
             } else {
-                await query(
-                    `INSERT INTO partidos_desbloqueados (id_usuario,partido_id,modificaciones_usadas,goles_gastados) VALUES ($1,$2,1,0)`,
-                    [idUsuario, pro.partidoId]
-                );
+                await pool.request()
+                    .input('IdUsuario', sql.Int, idUsuario)
+                    .input('PartidoId', sql.Int, pro.partidoId)
+                    .query(`INSERT INTO dbo.PartidosDesbloqueados (IdUsuario,PartidoId,ModificacionesUsadas,GolesGastados) VALUES (@IdUsuario,@PartidoId,1,0)`);
             }
-
+            await sellarPronostico(pool, idUsuario, pro.partidoId, pro.golesLocal, pro.golesVisitante);
             await registrarLogActividad({ idUsuario, accion:'guardar_quiniela', partidoId:pro.partidoId, detalle:`Pronóstico: ${pro.golesLocal}-${pro.golesVisitante}`, exito:true });
             guardados++;
         }
 
-        await query(
-            `INSERT INTO quinielas (id_usuario,estatus) VALUES ($1,'Borrador') ON CONFLICT (id_usuario) DO NOTHING`,
-            [idUsuario]
-        );
+        await pool.request()
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`IF NOT EXISTS (SELECT 1 FROM dbo.Quinielas WHERE IdUsuario=@IdUsuario) INSERT INTO dbo.Quinielas (IdUsuario,Estatus) VALUES (@IdUsuario,'Borrador')`);
 
-        const desb = await query(
-            `SELECT partido_id AS "PartidoId", modificaciones_usadas AS "ModificacionesUsadas", goles_gastados AS "GolesGastados"
-             FROM partidos_desbloqueados WHERE id_usuario=$1`,
-            [idUsuario]
-        );
+        const desb = await pool.request()
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`SELECT PartidoId AS "PartidoId", ModificacionesUsadas AS "ModificacionesUsadas", GolesGastados AS "GolesGastados" FROM dbo.PartidosDesbloqueados WHERE IdUsuario=@IdUsuario`);
 
         const msg = errores.length > 0 ? `⚠️ No se pudo guardar: ${errores.join(' | ')}` : `✅ Pronóstico guardado correctamente.`;
-        return res.json({ ok: guardados > 0, message: msg, partidosDesbloqueados: desb.rows });
+        return res.json({ ok: guardados > 0, message: msg, partidosDesbloqueados: desb.recordset });
 
     } catch (error) {
         console.error(error);
@@ -219,12 +245,11 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
 // ─── OBTENER QUINIELA ─────────────────────────────────────────────────────────
 router.get('/obtener-quiniela/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
-        const result = await query(
-            `SELECT partido_id AS "PartidoId", goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante"
-             FROM pronosticos WHERE id_usuario=$1`,
-            [parseInt(req.params.idUsuario)]
-        );
-        return res.json({ ok: true, pronosticos: result.rows });
+        const pool   = await poolPromise;
+        const result = await pool.request()
+            .input('IdUsuario', sql.Int, parseInt(req.params.idUsuario))
+            .query(`SELECT PartidoId, GolesLocal, GolesVisitante FROM dbo.Pronosticos WHERE IdUsuario=@IdUsuario`);
+        return res.json({ ok: true, pronosticos: result.recordset });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error al recuperar datos.' });
     }
@@ -234,22 +259,21 @@ router.get('/obtener-quiniela/:idUsuario', validarTokenUsuario, async (req, res)
 router.get('/mis-datos/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
         const idUsuario = parseInt(req.params.idUsuario);
+        const pool      = await poolPromise;
 
-        const sub = await query(
-            `SELECT s.goles_restantes AS "GolesRestantes", p.nombre AS "Paquete",
-                    p.max_partidos AS "MaxPartidos", p.goles AS "GolesIniciales"
-             FROM suscripciones s INNER JOIN paquetes p ON s.id_paquete=p.id_paquete
-             WHERE s.id_usuario=$1 AND s.activa=TRUE`,
-            [idUsuario]
-        );
+        const sub = await pool.request()
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`
+                SELECT s.GolesRestantes, p.Nombre AS Paquete, p.MaxPartidos, p.Goles AS GolesIniciales
+                FROM dbo.Suscripciones s INNER JOIN dbo.Paquetes p ON s.IdPaquete=p.IdPaquete
+                WHERE s.IdUsuario=@IdUsuario AND s.Activa=1
+            `);
 
-        const desb = await query(
-            `SELECT partido_id AS "PartidoId", modificaciones_usadas AS "ModificacionesUsadas", goles_gastados AS "GolesGastados"
-             FROM partidos_desbloqueados WHERE id_usuario=$1`,
-            [idUsuario]
-        );
+        const desb = await pool.request()
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`SELECT PartidoId AS "PartidoId", ModificacionesUsadas AS "ModificacionesUsadas", GolesGastados AS "GolesGastados" FROM dbo.PartidosDesbloqueados WHERE IdUsuario=@IdUsuario`);
 
-        return res.json({ ok: true, suscripcion: sub.rows[0] || null, partidosDesbloqueados: desb.rows });
+        return res.json({ ok: true, suscripcion: sub.recordset[0] || null, partidosDesbloqueados: desb.recordset });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error al obtener datos.' });
     }
@@ -265,23 +289,30 @@ router.post('/guardar-resultado', validarTokenAdmin, async (req, res) => {
     try {
         const { partidoId, golesLocal, golesVisitante, local, visitante } = req.body;
         resultadoRealSchema.parse({ partidoId, golesLocal, golesVisitante });
-        await query(
-            `INSERT INTO resultados_reales (partido_id,goles_local,goles_visitante)
-             VALUES ($1,$2,$3) ON CONFLICT (partido_id) DO UPDATE SET goles_local=$2, goles_visitante=$3`,
-            [partidoId, golesLocal, golesVisitante]
-        );
+        const pool = await poolPromise;
+
+        await pool.request()
+            .input('PartidoId',      sql.Int, partidoId)
+            .input('GolesLocal',     sql.Int, golesLocal)
+            .input('GolesVisitante', sql.Int, golesVisitante)
+            .query(`
+                IF EXISTS (SELECT 1 FROM dbo.ResultadosReales WHERE PartidoId=@PartidoId)
+                    UPDATE dbo.ResultadosReales SET GolesLocal=@GolesLocal, GolesVisitante=@GolesVisitante WHERE PartidoId=@PartidoId
+                ELSE
+                    INSERT INTO dbo.ResultadosReales (PartidoId,GolesLocal,GolesVisitante) VALUES (@PartidoId,@GolesLocal,@GolesVisitante)
+            `);
 
         res.json({ ok: true, message: 'Resultado guardado. Enviando notificaciones...' });
 
-        const pros = await query(
-            `SELECT p.id_usuario AS "IdUsuario", p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
-                    u.nombre AS "Nombre", u.correo AS "Correo"
-             FROM pronosticos p INNER JOIN usuarios u ON p.id_usuario=u.id_usuario
-             WHERE p.partido_id=$1 AND u.correo IS NOT NULL AND u.correo!=''`,
-            [partidoId]
-        );
+        const pros = await pool.request()
+            .input('PartidoId', sql.Int, partidoId)
+            .query(`
+                SELECT p.IdUsuario, p.GolesLocal AS ProLocal, p.GolesVisitante AS ProVisitante, u.Nombre, u.Correo
+                FROM dbo.Pronosticos p INNER JOIN dbo.Usuarios u ON p.IdUsuario=u.IdUsuario
+                WHERE p.PartidoId=@PartidoId AND u.Correo IS NOT NULL AND u.Correo!=''
+            `);
 
-        for (const pro of pros.rows) {
+        for (const pro of pros.recordset) {
             let puntos=0, estado='Falló';
             if (pro.ProLocal===golesLocal && pro.ProVisitante===golesVisitante) { puntos=5; estado='Exacto'; }
             else if (pro.ProLocal===pro.ProVisitante && golesLocal===golesVisitante) { puntos=1; estado='Acierto'; }
@@ -297,8 +328,9 @@ router.post('/guardar-resultado', validarTokenAdmin, async (req, res) => {
 // ─── OBTENER RESULTADOS ───────────────────────────────────────────────────────
 router.get('/obtener-resultados', async (req, res) => {
     try {
-        const result = await query().query(`SELECT PartidoId, GolesLocal, GolesVisitante FROM ResultadosReales`);
-        return res.json({ ok: true, resultados: result.rows });
+        const pool   = await poolPromise;
+        const result = await pool.request().query(`SELECT PartidoId, GolesLocal, GolesVisitante FROM dbo.ResultadosReales`);
+        return res.json({ ok: true, resultados: result.recordset });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
@@ -307,28 +339,29 @@ router.get('/obtener-resultados', async (req, res) => {
 // ─── CALCULAR PUNTOS ──────────────────────────────────────────────────────────
 router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
     try {
-        const pros = await query().query(`
+        const pool = await poolPromise;
+        const pros = await pool.request().query(`
             SELECT p.IdUsuario, p.GolesLocal AS ProLocal, p.GolesVisitante AS ProVisitante,
                    r.GolesLocal AS RealLocal, r.GolesVisitante AS RealVisitante
-            FROM Pronosticos p INNER JOIN ResultadosReales r ON p.PartidoId=r.PartidoId
+            FROM dbo.Pronosticos p INNER JOIN dbo.ResultadosReales r ON p.PartidoId=r.PartidoId
         `);
 
-        const todosUsers = await query().query(`SELECT IdUsuario FROM Usuarios WHERE Activo=1`);
+        const todosUsers = await pool.request().query(`SELECT IdUsuario FROM dbo.Usuarios WHERE Activo=1`);
         const mapaPuntos = {}, mapaAciertos = {};
-        todosUsers.rows.forEach(u => { mapaPuntos[u.IdUsuario]=0; mapaAciertos[u.IdUsuario]=0; });
+        todosUsers.recordset.forEach(u => { mapaPuntos[u.IdUsuario]=0; mapaAciertos[u.IdUsuario]=0; });
 
-        pros.rows.forEach(row => {
+        pros.recordset.forEach(row => {
             const id = row.IdUsuario;
             if (row.ProLocal===row.RealLocal && row.ProVisitante===row.RealVisitante) { mapaPuntos[id]+=5; mapaAciertos[id]+=1; }
             else if (row.ProLocal===row.ProVisitante && row.RealLocal===row.RealVisitante) { mapaPuntos[id]+=1; mapaAciertos[id]+=1; }
             else if ((row.ProLocal>row.ProVisitante&&row.RealLocal>row.RealVisitante)||(row.ProLocal<row.ProVisitante&&row.RealLocal<row.RealVisitante)) { mapaPuntos[id]+=3; mapaAciertos[id]+=1; }
         });
 
-        const campeon = await query(`SELECT * FROM resultado_campeon ORDER BY id_resultado DESC LIMIT 1`);
-        if (campeon.rows.length > 0) {
-            const { seleccion_campeon: SeleccionCampeon, goles_local: cRL, goles_visitante: cRV } = campeon.rows[0];
-            const prosCampeon = await query(`SELECT * FROM pronosticos_campeon`);
-            prosCampeon.rows.forEach(pc => {
+        const campeon = await pool.request().query(`SELECT TOP 1 * FROM dbo.ResultadoCampeon ORDER BY IdResultado DESC`);
+        if (campeon.recordset.length > 0) {
+            const { SeleccionCampeon, GolesLocal:cRL, GolesVisitante:cRV } = campeon.recordset[0];
+            const prosCampeon = await pool.request().query(`SELECT * FROM dbo.PronosticosCampeon`);
+            prosCampeon.recordset.forEach(pc => {
                 if (!mapaPuntos[pc.IdUsuario]) mapaPuntos[pc.IdUsuario]=0;
                 if (pc.SeleccionCampeon.toLowerCase()===SeleccionCampeon.toLowerCase() && pc.GolesLocal===cRL && pc.GolesVisitante===cRV) mapaPuntos[pc.IdUsuario]+=25;
                 else if (pc.SeleccionCampeon.toLowerCase()===SeleccionCampeon.toLowerCase()) mapaPuntos[pc.IdUsuario]+=15;
@@ -336,11 +369,15 @@ router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
         }
 
         for (const id in mapaPuntos) {
-            await query(
-                `INSERT INTO puntajes (id_usuario,puntos_totales) VALUES ($1,$2)
-                 ON CONFLICT (id_usuario) DO UPDATE SET puntos_totales=$2`,
-                [parseInt(id), mapaPuntos[id]]
-            );
+            await pool.request()
+                .input('IdUsuario',     sql.Int, parseInt(id))
+                .input('PuntosTotales', sql.Int, mapaPuntos[id])
+                .query(`
+                    IF EXISTS (SELECT 1 FROM dbo.Puntajes WHERE IdUsuario=@IdUsuario)
+                        UPDATE dbo.Puntajes SET PuntosTotales=@PuntosTotales WHERE IdUsuario=@IdUsuario
+                    ELSE
+                        INSERT INTO dbo.Puntajes (IdUsuario,PuntosTotales) VALUES (@IdUsuario,@PuntosTotales)
+                `);
         }
 
         return res.json({ ok: true, message: '✅ Puntos recalculados.' });
@@ -353,25 +390,26 @@ router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
 // ─── TABLA GENERAL ────────────────────────────────────────────────────────────
 router.get('/tabla-general', async (req, res) => {
     try {
-        const result = await query().query(`
+        const pool   = await poolPromise;
+        const result = await pool.request().query(`
             SELECT u.IdUsuario, u.Nombre, u.FotoUrl,
                    COALESCE(p.PuntosTotales,0) AS Puntos,
                    DENSE_RANK() OVER (ORDER BY COALESCE(p.PuntosTotales,0) DESC) AS PosicionReal,
-                   (SELECT COUNT(*) FROM Pronosticos pr WHERE pr.IdUsuario=u.IdUsuario) AS Predicciones,
-                   (SELECT COUNT(*) FROM Pronosticos pr
-                    INNER JOIN ResultadosReales rr ON pr.PartidoId=rr.PartidoId
+                   (SELECT COUNT(*) FROM dbo.Pronosticos pr WHERE pr.IdUsuario=u.IdUsuario) AS Predicciones,
+                   (SELECT COUNT(*) FROM dbo.Pronosticos pr
+                    INNER JOIN dbo.ResultadosReales rr ON pr.PartidoId=rr.PartidoId
                     WHERE pr.IdUsuario=u.IdUsuario AND (
                         (pr.GolesLocal=rr.GolesLocal AND pr.GolesVisitante=rr.GolesVisitante) OR
                         (pr.GolesLocal>pr.GolesVisitante AND rr.GolesLocal>rr.GolesVisitante) OR
                         (pr.GolesLocal<pr.GolesVisitante AND rr.GolesLocal<rr.GolesVisitante) OR
                         (pr.GolesLocal=pr.GolesVisitante AND rr.GolesLocal=rr.GolesVisitante)
                     )) AS Aciertos
-            FROM Usuarios u
-            LEFT JOIN Puntajes p ON u.IdUsuario=p.IdUsuario
+            FROM dbo.Usuarios u
+            LEFT JOIN dbo.Puntajes p ON u.IdUsuario=p.IdUsuario
             WHERE u.Activo=1 AND u.IdUsuario != 1
             ORDER BY Puntos DESC, Aciertos DESC, u.Nombre ASC
         `);
-        return res.json({ ok: true, ranking: result.rows });
+        return res.json({ ok: true, ranking: result.recordset });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -382,21 +420,24 @@ router.get('/tabla-general', async (req, res) => {
 router.get('/mis-resultados/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
         const idUsuario = parseInt(req.params.idUsuario);
-        const result = await query(
-            `SELECT p.partido_id AS "PartidoId", p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
-                       r.goles_local AS "RealLocal", r.goles_visitante AS "RealVisitante"
-             FROM pronosticos p LEFT JOIN resultados_reales r ON p.partido_id=r.partido_id
-             WHERE p.id_usuario=$1`,
-            [idUsuario]
-        );
+        const pool      = await poolPromise;
 
-        const rankingQ = await query().query(`
-            SELECT IdUsuario, DENSE_RANK() OVER (ORDER BY COALESCE(PuntosTotales,0) DESC) AS Posicion FROM puntajes
+        const result = await pool.request()
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`
+                SELECT p.PartidoId, p.GolesLocal AS ProLocal, p.GolesVisitante AS ProVisitante,
+                       r.GolesLocal AS RealLocal, r.GolesVisitante AS RealVisitante
+                FROM dbo.Pronosticos p LEFT JOIN dbo.ResultadosReales r ON p.PartidoId=r.PartidoId
+                WHERE p.IdUsuario=@IdUsuario
+            `);
+
+        const rankingQ = await pool.request().query(`
+            SELECT IdUsuario, DENSE_RANK() OVER (ORDER BY COALESCE(PuntosTotales,0) DESC) AS Posicion FROM dbo.Puntajes
         `);
-        const miPos = rankingQ.rows.find(u => u.IdUsuario === idUsuario);
+        const miPos = rankingQ.recordset.find(u => u.IdUsuario === idUsuario);
 
         let exactos=0, correctos=0, fallados=0, pendientes=0, puntos=0;
-        const historial = result.rows.map(row => {
+        const historial = result.recordset.map(row => {
             let pts=0, estado='Pendiente';
             if (row.RealLocal===null) { pendientes++; }
             else if (row.ProLocal===row.RealLocal&&row.ProVisitante===row.RealVisitante) { exactos++; pts=5; estado='Exacto'; }
@@ -439,12 +480,18 @@ router.post('/campeon', validarTokenUsuario, async (req, res) => {
         }
 
         const { idUsuario:valId, seleccionCampeon, golesLocal, golesVisitante } = campeonSchema.parse(req.body);
-        await query(
-            `INSERT INTO pronosticos_campeon (id_usuario,seleccion_campeon,goles_local,goles_visitante)
-             VALUES ($1,$2,$3,$4)
-             ON CONFLICT (id_usuario) DO UPDATE SET seleccion_campeon=$2, goles_local=$3, goles_visitante=$4, fecha_actualizacion=NOW()`,
-            [valId, seleccionCampeon, golesLocal, golesVisitante]
-        );
+        const pool = await poolPromise;
+        await pool.request()
+            .input('IdUsuario',        sql.Int,          valId)
+            .input('SeleccionCampeon', sql.NVarChar(100), seleccionCampeon)
+            .input('GolesLocal',       sql.Int,          golesLocal)
+            .input('GolesVisitante',   sql.Int,          golesVisitante)
+            .query(`
+                IF EXISTS (SELECT 1 FROM dbo.PronosticosCampeon WHERE IdUsuario=@IdUsuario)
+                    UPDATE dbo.PronosticosCampeon SET SeleccionCampeon=@SeleccionCampeon, GolesLocal=@GolesLocal, GolesVisitante=@GolesVisitante, FechaActualizacion=GETDATE() WHERE IdUsuario=@IdUsuario
+                ELSE
+                    INSERT INTO dbo.PronosticosCampeon (IdUsuario,SeleccionCampeon,GolesLocal,GolesVisitante) VALUES (@IdUsuario,@SeleccionCampeon,@GolesLocal,@GolesVisitante)
+            `);
 
         await registrarLogActividad({ idUsuario:valId, accion:'guardar_campeon', detalle:`Campeón: ${seleccionCampeon} (${golesLocal}-${golesVisitante})`, exito:true });
         return res.json({ ok: true, message: '🏆 Pronóstico de campeón guardado.' });
@@ -456,12 +503,11 @@ router.post('/campeon', validarTokenUsuario, async (req, res) => {
 
 router.get('/campeon/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
-        const result = await query(
-            `SELECT seleccion_campeon AS "SeleccionCampeon", goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante"
-             FROM pronosticos_campeon WHERE id_usuario=$1`,
-            [parseInt(req.params.idUsuario)]
-        );
-        return res.json({ ok: true, campeon: result.rows[0] || null });
+        const pool   = await poolPromise;
+        const result = await pool.request()
+            .input('IdUsuario', sql.Int, parseInt(req.params.idUsuario))
+            .query(`SELECT SeleccionCampeon, GolesLocal, GolesVisitante FROM dbo.PronosticosCampeon WHERE IdUsuario=@IdUsuario`);
+        return res.json({ ok: true, campeon: result.recordset[0] || null });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
@@ -470,8 +516,9 @@ router.get('/campeon/:idUsuario', validarTokenUsuario, async (req, res) => {
 // ─── PAQUETES ────────────────────────────────────────────────────────────────
 router.get('/paquetes', async (req, res) => {
     try {
-        const result = await query().query(`SELECT IdPaquete, Nombre, Precio, Goles, MaxPartidos FROM Paquetes WHERE Nombre='Premium'`);
-        return res.json({ ok: true, paquetes: result.rows });
+        const pool   = await poolPromise;
+        const result = await pool.request().query(`SELECT IdPaquete, Nombre, Precio, Goles, MaxPartidos FROM dbo.Paquetes WHERE Nombre='Premium'`);
+        return res.json({ ok: true, paquetes: result.recordset });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
@@ -482,23 +529,27 @@ router.post('/admin/activar-suscripcion', async (req, res) => {
     try {
         const { idUsuario, idPaquete, notas } = req.body;
         if (!idUsuario || !idPaquete) return res.status(400).json({ ok: false, message: 'Datos incompletos.' });
-        const paq = await query(
-            `SELECT goles AS "Goles", nombre AS "Nombre", precio AS "Precio" FROM paquetes WHERE id_paquete=$1`,
-            [idPaquete]
-        );
-        if (paq.rows.length === 0) return res.status(404).json({ ok: false, message: 'Paquete no encontrado.' });
+        const pool = await poolPromise;
 
-        const { Goles, Nombre, Precio } = paq.rows[0];
-        await query(`UPDATE suscripciones SET activa=FALSE WHERE id_usuario=$1 AND activa=TRUE`, [idUsuario]);
-        await query(
-            `INSERT INTO suscripciones (id_usuario,id_paquete,goles_restantes,notas) VALUES ($1,$2,$3,$4)`,
-            [idUsuario, idPaquete, Goles, notas || null]
-        );
+        const paq = await pool.request()
+            .input('IdPaquete', sql.Int, idPaquete)
+            .query(`SELECT Goles, Nombre, Precio FROM dbo.Paquetes WHERE IdPaquete=@IdPaquete`);
+        if (paq.recordset.length === 0) return res.status(404).json({ ok: false, message: 'Paquete no encontrado.' });
 
-        await query(
-            `INSERT INTO bolsa (id_usuario,monto,concepto) VALUES ($1,$2,$3)`,
-            [idUsuario, Precio, `Paquete ${Nombre}`]
-        );
+        const { Goles, Nombre, Precio } = paq.recordset[0];
+        await pool.request().input('IdUsuario', sql.Int, idUsuario).query(`UPDATE dbo.Suscripciones SET Activa=0 WHERE IdUsuario=@IdUsuario AND Activa=1`);
+        await pool.request()
+            .input('IdUsuario',      sql.Int,          idUsuario)
+            .input('IdPaquete',      sql.Int,          idPaquete)
+            .input('GolesRestantes', sql.Int,          Goles)
+            .input('Notas',          sql.NVarChar(255), notas || null)
+            .query(`INSERT INTO dbo.Suscripciones (IdUsuario,IdPaquete,GolesRestantes,Notas) VALUES (@IdUsuario,@IdPaquete,@GolesRestantes,@Notas)`);
+
+        await pool.request()
+            .input('IdUsuario', sql.Int,          idUsuario)
+            .input('Monto',     sql.Decimal(10,2), Precio)
+            .input('Concepto',  sql.NVarChar(255), `Paquete ${Nombre}`)
+            .query(`INSERT INTO dbo.Bolsa (IdUsuario,Monto,Concepto) VALUES (@IdUsuario,@Monto,@Concepto)`);
 
         return res.json({ ok: true, message: `✅ Paquete ${Nombre} activado.` });
     } catch (error) {
@@ -510,20 +561,21 @@ router.post('/admin/activar-suscripcion', async (req, res) => {
 // ─── ADMIN: USUARIOS CON SUSCRIPCIONES ───────────────────────────────────────
 router.get('/admin/usuarios-suscripciones', async (req, res) => {
     try {
-        const result = await query().query(`
+        const pool   = await poolPromise;
+        const result = await pool.request().query(`
             SELECT u.IdUsuario, u.Nombre, u.Correo, u.FotoUrl,
                    p.Nombre AS Paquete, p.IdPaquete,
                    s.GolesRestantes, p.Goles AS GolesIniciales,
                    p.MaxPartidos, s.FechaActivacion, s.Notas,
                    CASE WHEN s.IdSuscripcion IS NOT NULL THEN 1 ELSE 0 END AS TieneSuscripcion,
-                   (SELECT COUNT(*) FROM PartidosDesbloqueados pd WHERE pd.IdUsuario=u.IdUsuario) AS PartidosDesbloqueados
-            FROM Usuarios u
-            LEFT JOIN Suscripciones s ON s.IdUsuario=u.IdUsuario AND s.Activa=1
-            LEFT JOIN Paquetes p ON p.IdPaquete=s.IdPaquete
+                   (SELECT COUNT(*) FROM dbo.PartidosDesbloqueados pd WHERE pd.IdUsuario=u.IdUsuario) AS PartidosDesbloqueados
+            FROM dbo.Usuarios u
+            LEFT JOIN dbo.Suscripciones s ON s.IdUsuario=u.IdUsuario AND s.Activa=1
+            LEFT JOIN dbo.Paquetes p ON p.IdPaquete=s.IdPaquete
             WHERE u.Activo=1
             ORDER BY u.Nombre ASC
         `);
-        return res.json({ ok: true, usuarios: result.rows });
+        return res.json({ ok: true, usuarios: result.recordset });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -535,15 +587,18 @@ router.post('/admin/registrar-recarga', async (req, res) => {
     try {
         const { idUsuario, goles, monto, nota } = req.body;
         if (!idUsuario || !goles || !monto) return res.status(400).json({ ok: false, message: 'Datos incompletos.' });
-        await query(
-            `UPDATE suscripciones SET goles_restantes=goles_restantes+$1 WHERE id_usuario=$2 AND activa=TRUE`,
-            [goles, idUsuario]
-        );
+        const pool = await poolPromise;
 
-        await query(
-            `INSERT INTO bolsa (id_usuario,monto,concepto) VALUES ($1,$2,$3)`,
-            [idUsuario, parseFloat(monto), nota || `Recarga ${goles} goles`]
-        );
+        await pool.request()
+            .input('Goles',     sql.Int, goles)
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`UPDATE dbo.Suscripciones SET GolesRestantes=GolesRestantes+@Goles WHERE IdUsuario=@IdUsuario AND Activa=1`);
+
+        await pool.request()
+            .input('IdUsuario', sql.Int,          idUsuario)
+            .input('Monto',     sql.Decimal(10,2), parseFloat(monto))
+            .input('Concepto',  sql.NVarChar(255), nota || `Recarga ${goles} goles`)
+            .query(`INSERT INTO dbo.Bolsa (IdUsuario,Monto,Concepto) VALUES (@IdUsuario,@Monto,@Concepto)`);
 
         return res.json({ ok: true, message: `✅ ${goles} Goles agregados.` });
     } catch (error) {
@@ -556,68 +611,212 @@ router.post('/admin/registrar-recarga', async (req, res) => {
 router.post('/admin/campeon-real', async (req, res) => {
     try {
         const { seleccionCampeon, golesLocal, golesVisitante } = req.body;
-        await query(
-            `INSERT INTO resultado_campeon (seleccion_campeon,goles_local,goles_visitante) VALUES ($1,$2,$3)`,
-            [seleccionCampeon, golesLocal, golesVisitante]
-        );
+        const pool = await poolPromise;
+        await pool.request()
+            .input('SeleccionCampeon', sql.NVarChar(100), seleccionCampeon)
+            .input('GolesLocal',       sql.Int,           golesLocal)
+            .input('GolesVisitante',   sql.Int,           golesVisitante)
+            .query(`INSERT INTO dbo.ResultadoCampeon (SeleccionCampeon,GolesLocal,GolesVisitante) VALUES (@SeleccionCampeon,@GolesLocal,@GolesVisitante)`);
         return res.json({ ok: true, message: '🏆 Campeón real registrado.' });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
 });
-
-// ─── ADMIN: BOLSA ────────────────────────────────────────────────────────────
+async function getConfigBolsa(pool) {
+    const result = await pool.request()
+        .query(`SELECT Clave, Valor FROM dbo.ConfigBolsa`);
+    const cfg = {};
+    result.recordset.forEach(r => { cfg[r.Clave] = parseFloat(r.Valor); });
+    // Fallback a hardcoded si la tabla está vacía
+    return {
+        pctAdmin:   cfg.PctAdmin   ?? 15,
+        pctPremio1: cfg.PctPremio1 ?? 50,
+        pctPremio2: cfg.PctPremio2 ?? 30,
+        pctPremio3: cfg.PctPremio3 ?? 20,
+    };
+}
+ 
+// ─── ADMIN: BOLSA (reemplaza el existente) ───────────────────────────────────
 router.get('/admin/bolsa', async (req, res) => {
     try {
-        const insResult = await query().query(`
-            SELECT COALESCE(SUM(b.Monto),0) AS TotalRecaudado, COUNT(DISTINCT s.IdUsuario) AS TotalParticipantes
-            FROM Suscripciones s INNER JOIN Bolsa b ON b.IdUsuario=s.IdUsuario WHERE s.Activa=1
-        `);
-
-        const totalRecaudado     = parseFloat(insResult.rows[0].TotalRecaudado) || 0;
-        const totalParticipantes = parseInt(insResult.rows[0].TotalParticipantes) || 0;
-        const bolsaPremios       = totalRecaudado * 0.85;
-        const cuotaAdmin         = totalRecaudado * 0.15;
-        const premio1=bolsaPremios*0.50, premio2=bolsaPremios*0.30, premio3=bolsaPremios*0.20;
-
-        const rankingResult = await query().query(`
+        const pool = await poolPromise;
+ 
+        const [insResult, cfg] = await Promise.all([
+            pool.request().query(`
+                SELECT COALESCE(SUM(b.Monto),0) AS TotalRecaudado,
+                       COUNT(DISTINCT s.IdUsuario) AS TotalParticipantes
+                FROM dbo.Suscripciones s
+                INNER JOIN dbo.Bolsa b ON b.IdUsuario=s.IdUsuario
+                WHERE s.Activa=1
+            `),
+            getConfigBolsa(pool)
+        ]);
+ 
+        const totalRecaudado     = parseFloat(insResult.recordset[0].TotalRecaudado) || 0;
+        const totalParticipantes = parseInt(insResult.recordset[0].TotalParticipantes) || 0;
+        const bolsaPremios       = totalRecaudado * ((100 - cfg.pctAdmin) / 100);
+        const cuotaAdmin         = totalRecaudado * (cfg.pctAdmin / 100);
+        const premio1            = bolsaPremios * (cfg.pctPremio1 / 100);
+        const premio2            = bolsaPremios * (cfg.pctPremio2 / 100);
+        const premio3            = bolsaPremios * (cfg.pctPremio3 / 100);
+ 
+        const rankingResult = await pool.request().query(`
             SELECT TOP 5 u.IdUsuario, u.Nombre, COALESCE(p.PuntosTotales,0) AS Puntos,
                    DENSE_RANK() OVER (ORDER BY COALESCE(p.PuntosTotales,0) DESC) AS Posicion
-            FROM Usuarios u LEFT JOIN Puntajes p ON u.IdUsuario=p.IdUsuario
+            FROM dbo.Usuarios u LEFT JOIN dbo.Puntajes p ON u.IdUsuario=p.IdUsuario
             WHERE u.Activo=1 ORDER BY Puntos DESC
         `);
-
-        const ranking=rankingResult.rows;
-        const pos1=ranking.filter(u=>u.Posicion===1), pos2=ranking.filter(u=>u.Posicion===2), pos3=ranking.filter(u=>u.Posicion===3);
-        const combinar=(arr,premios)=>{ const t=premios.reduce((a,b)=>a+b,0); return arr.map(u=>({...u,montoPremio:t/arr.length,porcentaje:((t/bolsaPremios)*100/arr.length).toFixed(2)})); };
-        let distribucion=[];
-        if(pos1.length>1) distribucion=[...combinar(pos1,[premio1,premio2]),...combinar(pos2.length?pos2:pos3,[premio3])];
-        else if(pos2.length>1) distribucion=[...combinar(pos1,[premio1]),...combinar(pos2,[premio2,premio3])];
-        else if(pos3.length>1) distribucion=[...combinar(pos1,[premio1]),...combinar(pos2,[premio2]),...combinar(pos3,[premio3])];
-        else distribucion=[...(pos1[0]?[{...pos1[0],montoPremio:premio1,porcentaje:'50.00'}]:[]),...(pos2[0]?[{...pos2[0],montoPremio:premio2,porcentaje:'30.00'}]:[]),...(pos3[0]?[{...pos3[0],montoPremio:premio3,porcentaje:'20.00'}]:[])];
-
-        return res.json({ ok:true, totalRecaudado, totalParticipantes, bolsaPremios, cuotaAdmin, premio1, premio2, premio3, distribucion, ranking });
+ 
+        const ranking = rankingResult.recordset;
+        const pos1    = ranking.filter(u => u.Posicion === 1);
+        const pos2    = ranking.filter(u => u.Posicion === 2);
+        const pos3    = ranking.filter(u => u.Posicion === 3);
+ 
+        const combinar = (arr, premios) => {
+            const t = premios.reduce((a, b) => a + b, 0);
+            return arr.map(u => ({
+                ...u,
+                montoPremio: t / arr.length,
+                porcentaje: ((t / bolsaPremios) * 100 / arr.length).toFixed(2)
+            }));
+        };
+ 
+        let distribucion = [];
+        if      (pos1.length > 1) distribucion = [...combinar(pos1, [premio1, premio2]), ...combinar(pos2.length ? pos2 : pos3, [premio3])];
+        else if (pos2.length > 1) distribucion = [...combinar(pos1, [premio1]), ...combinar(pos2, [premio2, premio3])];
+        else if (pos3.length > 1) distribucion = [...combinar(pos1, [premio1]), ...combinar(pos2, [premio2]), ...combinar(pos3, [premio3])];
+        else                      distribucion = [
+            ...(pos1[0] ? [{ ...pos1[0], montoPremio: premio1, porcentaje: cfg.pctPremio1.toFixed(2) }] : []),
+            ...(pos2[0] ? [{ ...pos2[0], montoPremio: premio2, porcentaje: cfg.pctPremio2.toFixed(2) }] : []),
+            ...(pos3[0] ? [{ ...pos3[0], montoPremio: premio3, porcentaje: cfg.pctPremio3.toFixed(2) }] : []),
+        ];
+ 
+        return res.json({
+            ok: true,
+            totalRecaudado, totalParticipantes,
+            bolsaPremios, cuotaAdmin,
+            premio1, premio2, premio3,
+            distribucion, ranking,
+            config: cfg   // ← enviamos la config al frontend para mostrar en los inputs
+        });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
 });
-
+ 
+// ─── ADMIN: GUARDAR CONFIG BOLSA ─────────────────────────────────────────────
+router.post('/admin/config-bolsa',  async (req, res) => {
+    try {
+        const { pctAdmin, pctPremio1, pctPremio2, pctPremio3 } = req.body;
+ 
+        // Validaciones
+        const vals = [pctAdmin, pctPremio1, pctPremio2, pctPremio3];
+        if (vals.some(v => v === undefined || v === null || isNaN(v)))
+            return res.status(400).json({ ok: false, message: 'Todos los porcentajes son requeridos.' });
+        if (vals.some(v => v < 0 || v > 100))
+            return res.status(400).json({ ok: false, message: 'Los porcentajes deben estar entre 0 y 100.' });
+        if (pctAdmin > 50)
+            return res.status(400).json({ ok: false, message: '⛔ La cuota admin no puede superar el 50%.' });
+ 
+        const sumaPremios = parseFloat(pctPremio1) + parseFloat(pctPremio2) + parseFloat(pctPremio3);
+        if (Math.abs(sumaPremios - 100) > 0.01)
+            return res.status(400).json({ ok: false, message: `⛔ Los premios deben sumar 100% (actualmente ${sumaPremios.toFixed(2)}%).` });
+ 
+        const pool = await poolPromise;
+        const updates = [
+            ['PctAdmin',   pctAdmin],
+            ['PctPremio1', pctPremio1],
+            ['PctPremio2', pctPremio2],
+            ['PctPremio3', pctPremio3],
+        ];
+ 
+        for (const [clave, valor] of updates) {
+            await pool.request()
+                .input('Clave', sql.NVarChar(50),  clave)
+                .input('Valor', sql.Decimal(5, 2),  parseFloat(valor))
+                .query(`
+                    MERGE dbo.ConfigBolsa AS target
+                    USING (SELECT @Clave AS Clave) AS source ON target.Clave = source.Clave
+                    WHEN MATCHED THEN
+                        UPDATE SET Valor=@Valor, FechaActualizacion=GETDATE()
+                    WHEN NOT MATCHED THEN
+                        INSERT (Clave, Valor) VALUES (@Clave, @Valor);
+                `);
+        }
+ 
+        return res.json({ ok: true, message: '✅ Porcentajes actualizados correctamente.' });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error al guardar configuración.' });
+    }
+});
+ 
+// ─── PÚBLICO: BOLSA PARA USUARIOS ────────────────────────────────────────────
+router.get('/bolsa-premios', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+ 
+        const [insResult, cfg] = await Promise.all([
+            pool.request().query(`
+                SELECT COALESCE(SUM(b.Monto),0) AS TotalRecaudado,
+                       COUNT(DISTINCT s.IdUsuario) AS TotalParticipantes
+                FROM dbo.Suscripciones s
+                INNER JOIN dbo.Bolsa b ON b.IdUsuario=s.IdUsuario
+                WHERE s.Activa=1
+            `),
+            getConfigBolsa(pool)
+        ]);
+ 
+        const totalRecaudado     = parseFloat(insResult.recordset[0].TotalRecaudado) || 0;
+        const totalParticipantes = parseInt(insResult.recordset[0].TotalParticipantes) || 0;
+        const bolsaPremios       = totalRecaudado * ((100 - cfg.pctAdmin) / 100);
+        const premio1            = bolsaPremios * (cfg.pctPremio1 / 100);
+        const premio2            = bolsaPremios * (cfg.pctPremio2 / 100);
+        const premio3            = bolsaPremios * (cfg.pctPremio3 / 100);
+ 
+        // Top 3 actual (sin revelar montos exactos si no hay ganadores)
+        const rankingResult = await pool.request().query(`
+            SELECT TOP 3 u.Nombre, u.FotoUrl,
+                   COALESCE(p.PuntosTotales,0) AS Puntos,
+                   DENSE_RANK() OVER (ORDER BY COALESCE(p.PuntosTotales,0) DESC) AS Posicion
+            FROM dbo.Usuarios u LEFT JOIN dbo.Puntajes p ON u.IdUsuario=p.IdUsuario
+            WHERE u.Activo=1 AND u.IdUsuario <> 1
+            ORDER BY Puntos DESC
+        `);
+ 
+        return res.json({
+            ok: true,
+            totalRecaudado,
+            totalParticipantes,
+            bolsaPremios,
+            premio1, premio2, premio3,
+            pctPremio1: cfg.pctPremio1,
+            pctPremio2: cfg.pctPremio2,
+            pctPremio3: cfg.pctPremio3,
+            ranking: rankingResult.recordset
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error.' });
+    }
+});
 // ─── ESTADO QUINIELA ──────────────────────────────────────────────────────────
 router.get('/estado-quiniela', async (req, res) => {
     try {
-        const config = await query().query(`SELECT Clave, Valor FROM ConfigQuiniela`);
+        const pool   = await poolPromise;
+        const config = await pool.request().query(`SELECT Clave, Valor FROM dbo.ConfigQuiniela`);
         const estado = {};
-        config.rows.forEach(r => { estado[r.Clave] = r.Valor; });
+        config.recordset.forEach(r => { estado[r.Clave] = r.Valor; });
 
         let ganadores = [];
         if (estado.GanadoresRevelados === '1') {
-            const result = await query().query(`
+            const result = await pool.request().query(`
                 SELECT g.Posicion, g.Puntos, g.MontoPremio, g.PorcentajePremio, u.Nombre, u.FotoUrl
-                FROM GanadoresFinales g INNER JOIN Usuarios u ON g.IdUsuario=u.IdUsuario
+                FROM dbo.GanadoresFinales g INNER JOIN dbo.Usuarios u ON g.IdUsuario=u.IdUsuario
                 ORDER BY g.Posicion ASC, g.MontoPremio DESC
             `);
-            ganadores = result.rows;
+            ganadores = result.recordset;
         }
         return res.json({ ok: true, ...estado, ganadores });
     } catch (error) {
@@ -628,22 +827,26 @@ router.get('/estado-quiniela', async (req, res) => {
 // ─── ADMIN: REVELAR GANADORES ─────────────────────────────────────────────────
 router.post('/admin/revelar-ganadores', async (req, res) => {
     try {
-        const config = await query().query(`SELECT Valor FROM ConfigQuiniela WHERE Clave='GanadoresRevelados'`);
-        if (config.rows[0]?.Valor === '1') return res.status(409).json({ ok: false, message: '⚠️ Ganadores ya revelados.' });
+        const pool   = await poolPromise;
+        const config = await pool.request().query(`SELECT Valor FROM dbo.ConfigQuiniela WHERE Clave='GanadoresRevelados'`);
+        if (config.recordset[0]?.Valor === '1') return res.status(409).json({ ok: false, message: '⚠️ Ganadores ya revelados.' });
 
-        const bolsaR = await query().query(`SELECT COALESCE(SUM(Monto),0) AS Total FROM Bolsa`);
-        const totalRecaudado = parseFloat(bolsaR.rows[0].Total) || 0;
-        const bolsaPremios   = totalRecaudado*0.85;
-        const premio1=bolsaPremios*0.50, premio2=bolsaPremios*0.30, premio3=bolsaPremios*0.20;
+        const bolsaR = await pool.request().query(`SELECT COALESCE(SUM(Monto),0) AS Total FROM dbo.Bolsa`);
+        const cfg    = await getConfigBolsa(pool);
+        const totalRecaudado = parseFloat(bolsaR.recordset[0].Total) || 0;
+        const bolsaPremios   = totalRecaudado * ((100 - cfg.pctAdmin) / 100);
+        const premio1 = bolsaPremios * (cfg.pctPremio1 / 100);
+        const premio2 = bolsaPremios * (cfg.pctPremio2 / 100);
+        const premio3 = bolsaPremios * (cfg.pctPremio3 / 100);
 
-        const rankingResult = await query().query(`
+        const rankingResult = await pool.request().query(`
             SELECT u.IdUsuario, u.Nombre, COALESCE(p.PuntosTotales,0) AS Puntos,
                    DENSE_RANK() OVER (ORDER BY COALESCE(p.PuntosTotales,0) DESC) AS Posicion
-            FROM Usuarios u LEFT JOIN Puntajes p ON u.IdUsuario=p.IdUsuario
+            FROM dbo.Usuarios u LEFT JOIN dbo.Puntajes p ON u.IdUsuario=p.IdUsuario
             WHERE u.Activo=1 AND u.IdUsuario<>1
         `);
 
-        const ranking=rankingResult.rows;
+        const ranking=rankingResult.recordset;
         const groups={};
         ranking.forEach(u=>{ if(!groups[u.Puntos]) groups[u.Puntos]=[]; groups[u.Puntos].push(u); });
         const sortedPoints=Object.keys(groups).map(Number).sort((a,b)=>b-a);
@@ -660,18 +863,21 @@ router.post('/admin/revelar-ganadores', async (req, res) => {
         }
 
         for (const g of distribucion) {
-            await query(
-                `INSERT INTO ganadores_finales (id_usuario,posicion,puntos,porcentaje_premio,monto_premio) VALUES ($1,$2,$3,$4,$5)`,
-                [g.IdUsuario, g.Posicion, g.Puntos, parseFloat(g.porcentaje), g.montoPremio]
-            );
+            await pool.request()
+                .input('IdUsuario',        sql.Int,          g.IdUsuario)
+                .input('Posicion',         sql.Int,          g.Posicion)
+                .input('Puntos',           sql.Int,          g.Puntos)
+                .input('PorcentajePremio', sql.Decimal(5,2),  parseFloat(g.porcentaje))
+                .input('MontoPremio',      sql.Decimal(10,2), g.montoPremio)
+                .query(`INSERT INTO dbo.GanadoresFinales (IdUsuario,Posicion,Puntos,PorcentajePremio,MontoPremio) VALUES (@IdUsuario,@Posicion,@Puntos,@PorcentajePremio,@MontoPremio)`);
         }
 
-        await query().query(`UPDATE ConfigQuiniela SET Valor='1' WHERE Clave='GanadoresRevelados'`);
+        await pool.request().query(`UPDATE dbo.ConfigQuiniela SET Valor='1' WHERE Clave='GanadoresRevelados'`);
 
-        const todos = await query().query(`
+        const todos = await pool.request().query(`
             SELECT u.IdUsuario, u.Nombre, u.Correo, COALESCE(p.PuntosTotales,0) AS Puntos,
                    DENSE_RANK() OVER (ORDER BY COALESCE(p.PuntosTotales,0) DESC) AS Posicion
-            FROM Usuarios u LEFT JOIN Puntajes p ON u.IdUsuario=p.IdUsuario
+            FROM dbo.Usuarios u LEFT JOIN dbo.Puntajes p ON u.IdUsuario=p.IdUsuario
             WHERE u.Activo=1 AND u.Correo IS NOT NULL AND u.Correo!=''
         `);
 
@@ -679,7 +885,7 @@ router.post('/admin/revelar-ganadores', async (req, res) => {
         const medallas={1:'🥇',2:'🥈',3:'🥉'};
         const tablaHTML=distribucion.map(g=>`<tr><td>${medallas[g.Posicion]}</td><td>${g.Nombre}</td><td>${g.Puntos} pts</td><td>${fmt(g.montoPremio)}</td></tr>`).join('');
 
-        for (const u of todos.rows) {
+        for (const u of todos.recordset) {
             const gi=distribucion.find(g=>g.IdUsuario===u.IdUsuario);
             const html=`<div style="font-family:sans-serif;max-width:600px;background:#05101a;color:white;border-radius:16px;overflow:hidden;"><div style="background:linear-gradient(135deg,#f1c40f,#d4ac0d);padding:2rem;text-align:center;"><h1 style="color:#000;">🏆 ¡El Mundial ha terminado!</h1></div>${gi?`<div style="padding:1.5rem;text-align:center;"><p style="font-size:3rem;">${medallas[gi.Posicion]}</p><h2 style="color:#2ecc71;">¡Felicidades ${u.Nombre}!</h2><p>Premio: <strong style="color:#f1c40f;">${fmt(gi.montoPremio)}</strong></p></div>`:`<div style="padding:1.5rem;text-align:center;"><p>Hola ${u.Nombre}, terminaste en ${u.Posicion}° con ${u.Puntos} pts.</p></div>`}<div style="padding:1rem;"><table style="width:100%;"><thead><tr><th>Pos</th><th>Nombre</th><th>Puntos</th><th>Premio</th></tr></thead><tbody>${tablaHTML}</tbody></table></div><div style="padding:1rem;text-align:center;"><small>Quiniela Mundial 2026 — torreslab</small></div></div>`;
             enviarCorreoResultado({ correo:u.Correo, nombre:u.Nombre, asunto:'🏆 Resultados Quiniela Mundial 2026', htmlPersonalizado:html }).catch(console.error);
@@ -695,11 +901,12 @@ router.post('/admin/revelar-ganadores', async (req, res) => {
 // ─── ADMIN: PENDIENTES ────────────────────────────────────────────────────────
 router.get('/admin/pendientes', async (req, res) => {
     try {
-        const result = await query().query(`
+        const pool   = await poolPromise;
+        const result = await pool.request().query(`
             SELECT IdPendiente, FixtureId, LocalNombre, VisitanteNombre, GolesLocal, GolesVisitante, FechaPartido, Validado, PartidoId
-            FROM ResultadosPendientes WHERE Validado=0 ORDER BY FechaPartido ASC
+            FROM dbo.ResultadosPendientes WHERE Validado=0 ORDER BY FechaPartido ASC
         `);
-        return res.json({ ok: true, pendientes: result.rows });
+        return res.json({ ok: true, pendientes: result.recordset });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
@@ -708,33 +915,38 @@ router.get('/admin/pendientes', async (req, res) => {
 router.post('/admin/validar-pendiente', async (req, res) => {
     try {
         const { idPendiente, partidoId } = req.body;
-        const pendiente = await query(
-            `SELECT * FROM resultados_pendientes WHERE id_pendiente=$1`,
-            [idPendiente]
-        );
-        if (pendiente.rows.length === 0) return res.status(404).json({ ok: false, message: 'No encontrado.' });
+        const pool      = await poolPromise;
+        const pendiente = await pool.request()
+            .input('IdPendiente', sql.Int, idPendiente)
+            .query(`SELECT * FROM dbo.ResultadosPendientes WHERE IdPendiente=@IdPendiente`);
+        if (pendiente.recordset.length === 0) return res.status(404).json({ ok: false, message: 'No encontrado.' });
 
-        const { GolesLocal, GolesVisitante, LocalNombre, VisitanteNombre } = pendiente.rows[0];
+        const { GolesLocal, GolesVisitante, LocalNombre, VisitanteNombre } = pendiente.recordset[0];
 
-        await query(
-            `INSERT INTO resultados_reales (partido_id,goles_local,goles_visitante)
-             VALUES ($1,$2,$3) ON CONFLICT (partido_id) DO UPDATE SET goles_local=$2, goles_visitante=$3`,
-            [partidoId, GolesLocal, GolesVisitante]
-        );
+        await pool.request()
+            .input('PartidoId',      sql.Int, partidoId)
+            .input('GolesLocal',     sql.Int, GolesLocal)
+            .input('GolesVisitante', sql.Int, GolesVisitante)
+            .query(`
+                IF EXISTS (SELECT 1 FROM dbo.ResultadosReales WHERE PartidoId=@PartidoId)
+                    UPDATE dbo.ResultadosReales SET GolesLocal=@GolesLocal, GolesVisitante=@GolesVisitante WHERE PartidoId=@PartidoId
+                ELSE
+                    INSERT INTO dbo.ResultadosReales (PartidoId,GolesLocal,GolesVisitante) VALUES (@PartidoId,@GolesLocal,@GolesVisitante)
+            `);
 
-        await query(
-            `UPDATE resultados_pendientes SET validado=TRUE, fecha_validacion=NOW(), partido_id=$1 WHERE id_pendiente=$2`,
-            [partidoId, idPendiente]
-        );
+        await pool.request()
+            .input('PartidoId',   sql.Int, partidoId)
+            .input('IdPendiente', sql.Int, idPendiente)
+            .query(`UPDATE dbo.ResultadosPendientes SET Validado=1, FechaValidacion=GETDATE(), PartidoId=@PartidoId WHERE IdPendiente=@IdPendiente`);
 
-        const pros = await query(
-            `SELECT p.id_usuario AS "IdUsuario", p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
-                    u.nombre AS "Nombre", u.correo AS "Correo"
-             FROM pronosticos p INNER JOIN usuarios u ON p.id_usuario=u.id_usuario
-             WHERE p.partido_id=$1 AND u.correo IS NOT NULL`,
-            [partidoId]
-        );
-        for (const pro of pros.rows) {
+        const pros = await pool.request()
+            .input('PartidoId', sql.Int, partidoId)
+            .query(`
+                SELECT p.IdUsuario, p.GolesLocal AS ProLocal, p.GolesVisitante AS ProVisitante, u.Nombre, u.Correo
+                FROM dbo.Pronosticos p INNER JOIN dbo.Usuarios u ON p.IdUsuario=u.IdUsuario
+                WHERE p.PartidoId=@PartidoId AND u.Correo IS NOT NULL
+            `);
+        for (const pro of pros.recordset) {
             let puntos=0, estado='Falló';
             if (pro.ProLocal===GolesLocal&&pro.ProVisitante===GolesVisitante) { puntos=5; estado='Exacto'; }
             else if (pro.ProLocal===pro.ProVisitante&&GolesLocal===GolesVisitante) { puntos=1; estado='Acierto'; }
@@ -751,7 +963,8 @@ router.post('/admin/validar-pendiente', async (req, res) => {
 
 router.post('/admin/rechazar-pendiente', async (req, res) => {
     try {
-        await query(`DELETE FROM resultados_pendientes WHERE id_pendiente=$1`, [req.body.idPendiente]);
+        const pool = await poolPromise;
+        await pool.request().input('IdPendiente', sql.Int, req.body.idPendiente).query(`DELETE FROM dbo.ResultadosPendientes WHERE IdPendiente=@IdPendiente`);
         return res.json({ ok: true, message: 'Descartado.' });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -761,7 +974,8 @@ router.post('/admin/rechazar-pendiente', async (req, res) => {
 // ─── ADMIN: EXPORTAR PRONÓSTICOS ─────────────────────────────────────────────
 router.get('/admin/exportar-pronosticos', async (req, res) => {
     try {
-        const result = await query().query(`
+        const pool   = await poolPromise;
+        const result = await pool.request().query(`
             SELECT u.Nombre AS [Usuario], u.Correo AS [Correo],
                    p.PartidoId AS [Partido #],
                    p.GolesLocal AS [Pronóstico Local], p.GolesVisitante AS [Pronóstico Visitante],
@@ -777,15 +991,15 @@ router.get('/admin/exportar-pronosticos', async (req, res) => {
                        ELSE '0 — Falló'
                    END AS [Puntos],
                    ISNULL(pt.PuntosTotales,0) AS [Puntos Totales]
-            FROM Pronosticos p
-            INNER JOIN Usuarios u ON p.IdUsuario=u.IdUsuario
-            LEFT JOIN ResultadosReales r ON p.PartidoId=r.PartidoId
-            LEFT JOIN PartidosDesbloqueados pd ON pd.IdUsuario=p.IdUsuario AND pd.PartidoId=p.PartidoId
-            LEFT JOIN Puntajes pt ON pt.IdUsuario=u.IdUsuario
+            FROM dbo.Pronosticos p
+            INNER JOIN dbo.Usuarios u ON p.IdUsuario=u.IdUsuario
+            LEFT JOIN dbo.ResultadosReales r ON p.PartidoId=r.PartidoId
+            LEFT JOIN dbo.PartidosDesbloqueados pd ON pd.IdUsuario=p.IdUsuario AND pd.PartidoId=p.PartidoId
+            LEFT JOIN dbo.Puntajes pt ON pt.IdUsuario=u.IdUsuario
             WHERE u.Activo=1
             ORDER BY u.Nombre ASC, p.PartidoId ASC
         `);
-        return res.json({ ok: true, pronosticos: result.rows });
+        return res.json({ ok: true, pronosticos: result.recordset });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error al exportar.' });
@@ -795,14 +1009,15 @@ router.get('/admin/exportar-pronosticos', async (req, res) => {
 // ─── ADMIN: LOGS ─────────────────────────────────────────────────────────────
 router.get('/admin/logs', async (req, res) => {
     try {
-        const result = await query().query(`
+        const pool   = await poolPromise;
+        const result = await pool.request().query(`
             SELECT TOP 100 l.IdLog, l.IdUsuario, u.Nombre AS NombreUsuario,
                    l.Accion, l.PartidoId, l.Detalle, l.Fecha, l.Exito, l.ErrorMessage
-            FROM LogsActividad l
-            LEFT JOIN Usuarios u ON l.IdUsuario=u.IdUsuario
+            FROM dbo.LogsActividad l
+            LEFT JOIN dbo.Usuarios u ON l.IdUsuario=u.IdUsuario
             ORDER BY l.Fecha DESC
         `);
-        return res.json({ ok: true, logs: result.rows });
+        return res.json({ ok: true, logs: result.recordset });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -863,17 +1078,20 @@ router.get('/standings', async (req, res) => {
 router.get('/mis-puntos-grupo/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
         const idUsuario = parseInt(req.params.idUsuario);
-        const result = await query(
-            `SELECT p.partido_id AS "PartidoId", p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
-                    r.goles_local AS "RealLocal", r.goles_visitante AS "RealVisitante"
-             FROM pronosticos p
-             INNER JOIN resultados_reales r ON p.partido_id=r.partido_id
-             WHERE p.id_usuario=$1`,
-            [idUsuario]
-        );
+        const pool      = await poolPromise;
+
+        const result = await pool.request()
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`
+                SELECT p.PartidoId, p.GolesLocal AS ProLocal, p.GolesVisitante AS ProVisitante,
+                       r.GolesLocal AS RealLocal, r.GolesVisitante AS RealVisitante
+                FROM dbo.Pronosticos p
+                INNER JOIN dbo.ResultadosReales r ON p.PartidoId=r.PartidoId
+                WHERE p.IdUsuario=@IdUsuario
+            `);
 
         const puntosPorGrupo = {};
-        result.rows.forEach(row => {
+        result.recordset.forEach(row => {
             const partido = partidos.find(p => p.id === row.PartidoId);
             if (!partido || !partido.grupo) return;
             const grupo = partido.grupo;
@@ -887,6 +1105,79 @@ router.get('/mis-puntos-grupo/:idUsuario', validarTokenUsuario, async (req, res)
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
+    }
+});
+
+router.get('/pronosticos-partido/:partidoId', validarTokenUsuario, async (req, res) => {
+    try {
+        const partidoId = parseInt(req.params.partidoId);
+        const pool      = await poolPromise;
+
+        const revelado  = await pool.request()
+            .input('PartidoId', sql.Int, partidoId)
+            .query(`SELECT Revelado FROM dbo.PartidosRevelados WHERE PartidoId = @PartidoId`);
+
+        const estaRevelado = revelado.recordset[0]?.Revelado === true;
+
+        const tokenAdmin    = req.headers['x-admin-token'] || req.query.adminToken;
+        const secret        = process.env.ADMIN_SECRET || 'default-admin-secret-2026-torreslab';
+        const expectedAdmin = crypto.createHmac('sha256', secret).update('1').digest('hex');
+        const esAdmin       = tokenAdmin === expectedAdmin;
+
+        if (!estaRevelado && !esAdmin) {
+            return res.json({ ok: true, revelado: false, pronosticos: [] });
+        }
+
+        const result = await pool.request()
+            .input('PartidoId', sql.Int, partidoId)
+            .query(`
+                SELECT
+                    u.Nombre,
+                    p.GolesLocal,
+                    p.GolesVisitante,
+                    p.FechaRegistro,
+                    p.HashIntegridad,
+                    CASE WHEN p.ModificadoPor IS NOT NULL THEN 1 ELSE 0 END AS Sospechoso,
+                    p.ModificadoPor
+                FROM dbo.Pronosticos p
+                INNER JOIN dbo.Usuarios u ON u.IdUsuario = p.IdUsuario
+                WHERE p.PartidoId = @PartidoId
+                ORDER BY u.Nombre ASC
+            `);
+
+        return res.json({ ok: true, revelado: true, pronosticos: result.recordset });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error al obtener pronósticos.' });
+    }
+});
+
+// ─── ADMIN: REVELAR PRONÓSTICOS DE UN PARTIDO ─────────────────────────────────
+router.post('/admin/revelar-partido',validarTokenAdmin, async (req, res) => {
+    try {
+        const { partidoId } = req.body;
+        if (!partidoId) return res.status(400).json({ ok: false, message: 'Falta partidoId.' });
+        const pool = await poolPromise;
+
+        await pool.request()
+            .input('PartidoId', sql.Int,          partidoId)
+            .input('Fecha',     sql.DateTime,     new Date())
+            .input('Admin',     sql.NVarChar(100), 'admin')
+            .query(`
+                MERGE dbo.PartidosRevelados AS target
+                USING (SELECT @PartidoId AS PartidoId) AS source ON target.PartidoId = source.PartidoId
+                WHEN MATCHED THEN
+                    UPDATE SET Revelado=1, FechaRevelado=@Fecha, ReveladoPor=@Admin
+                WHEN NOT MATCHED THEN
+                    INSERT (PartidoId, Revelado, FechaRevelado, ReveladoPor)
+                    VALUES (@PartidoId, 1, @Fecha, @Admin);
+            `);
+
+        await registrarLogActividad({ accion:'revelar_partido', partidoId, detalle:`Partido ${partidoId} revelado`, exito:true });
+        return res.json({ ok: true, message: `✅ Pronósticos del partido ${partidoId} revelados.` });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error al revelar.' });
     }
 });
 

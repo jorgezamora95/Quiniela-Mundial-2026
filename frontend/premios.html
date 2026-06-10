@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/sidebar.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+    <title>Premios | Quiniela Mundial 2026</title>
+    <style>
+        /* ── Hero bolsa ── */
+        .premios-hero {
+            background: linear-gradient(135deg, rgba(22,136,63,.15), rgba(241,196,15,.08));
+            border: 1px solid rgba(241,196,15,.2);
+            border-radius: 16px;
+            padding: 2.5rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .premios-hero::before {
+            content: '💰';
+            position: absolute;
+            font-size: 8rem;
+            opacity: .04;
+            top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            pointer-events: none;
+        }
+        .bolsa-monto {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(2.5rem, 8vw, 4.5rem);
+            color: #f1c40f;
+            line-height: 1;
+            margin: .5rem 0;
+            text-shadow: 0 0 40px rgba(241,196,15,.3);
+        }
+        .bolsa-label {
+            color: #b8c2d6;
+            font-size: .9rem;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+        }
+        .bolsa-participantes {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            background: rgba(255,255,255,.06);
+            border-radius: 20px;
+            padding: .3rem .9rem;
+            font-size: .82rem;
+            color: #b8c2d6;
+            margin-top: .8rem;
+        }
+
+        /* ── Cards de premios ── */
+        .premios-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 600px) { .premios-grid { grid-template-columns: 1fr; } }
+
+        .premio-card {
+            border-radius: 14px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid transparent;
+            transition: transform .2s;
+        }
+        .premio-card:hover { transform: translateY(-3px); }
+        .premio-card.oro   { background: rgba(241,196,15,.08); border-color: rgba(241,196,15,.25); }
+        .premio-card.plata { background: rgba(189,195,199,.08); border-color: rgba(189,195,199,.2); }
+        .premio-card.bronce{ background: rgba(210,105,30,.08);  border-color: rgba(210,105,30,.2); }
+
+        .premio-emoji  { font-size: 2.5rem; margin-bottom: .5rem; }
+        .premio-pos    { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: #7a8aa0; margin-bottom: .3rem; }
+        .premio-monto  { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; line-height: 1.1; }
+        .premio-card.oro    .premio-monto { color: #f1c40f; }
+        .premio-card.plata  .premio-monto { color: #bdc3c7; }
+        .premio-card.bronce .premio-monto { color: #d2691e; }
+        .premio-pct    { font-size: .78rem; color: #7a8aa0; margin-top: .2rem; }
+
+        /* ── Top 3 actual ── */
+        .top3-card {
+            background: rgba(255,255,255,.03);
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 1.5rem;
+        }
+        .top3-header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,.07);
+        }
+        .top3-header h3 { margin: 0; color: #fff; font-size: 1rem; }
+        .top3-header p  { margin: .2rem 0 0; color: #7a8aa0; font-size: .82rem; }
+
+        .top3-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,.05);
+        }
+        .top3-row:last-child { border-bottom: none; }
+        .top3-pos   { font-size: 1.5rem; width: 2rem; text-align: center; flex-shrink: 0; }
+        .top3-avatar {
+            width: 38px; height: 38px; border-radius: 50%;
+            object-fit: cover; background: rgba(255,255,255,.1);
+            flex-shrink: 0;
+        }
+        .top3-nombre { font-weight: 600; color: #fff; font-size: .95rem; }
+        .top3-puntos { color: #7a8aa0; font-size: .82rem; }
+        .top3-premio { margin-left: auto; color: #2ecc71; font-weight: 700; font-size: .95rem; white-space: nowrap; }
+
+        /* ── Info footer ── */
+        .premios-info {
+            background: rgba(255,255,255,.03);
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 12px;
+            padding: 1.2rem 1.5rem;
+            color: #7a8aa0;
+            font-size: .82rem;
+            line-height: 1.6;
+        }
+        .premios-info strong { color: #b8c2d6; }
+
+        /* ── Loading ── */
+        .premios-loading {
+            text-align: center;
+            color: #7a8aa0;
+            padding: 3rem;
+            font-size: .9rem;
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="main-content">
+
+        <div class="page-header">
+            <div>
+                <h2>🏆 Premios</h2>
+                <p>Bolsa acumulada y distribución de premios en tiempo real.</p>
+            </div>
+        </div>
+
+        <div id="premiosContainer">
+            <div class="premios-loading">
+                <i class="fa-solid fa-spinner fa-spin"></i> Cargando bolsa…
+            </div>
+        </div>
+
+    </main>
+
+    <script src="./js/config.js"></script>
+    <script src="./js/sesion.js"></script>
+    <script src="./js/layout.js"></script>
+    <script src="./js/premios.js"></script>
+</body>
+</html>
