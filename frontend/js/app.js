@@ -275,11 +275,11 @@ function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
             btnGuardar.className = "btn-guardar-fila";
 
             if (modRestantes === 1) {
-                btnGuardar.innerHTML         = `💾 <small style="color:#e74c3c;">⚠️ Último cambio</small>`;
+                btnGuardar.innerHTML         = `💾 <small style="color:#e74c3c;">⚠️ Último cambio disponible</small>`;
                 btnGuardar.style.borderColor = "rgba(231,76,60,.6)";
                 btnGuardar.style.background  = "rgba(231,76,60,.08)";
             } else if (modRestantes === 2) {
-                btnGuardar.innerHTML         = `💾 <small style="color:#f1c40f;">Guardar (te queda 2 más)</small>`;
+                btnGuardar.innerHTML         = `💾 <small style="color:#f1c40f;">Guardar (te quedarán 2 cambios más)</small>`;
                 btnGuardar.style.borderColor = "rgba(241,196,15,.5)";
             } else {
                 btnGuardar.innerHTML = `💾 <small>Guardar pronóstico</small>`;
@@ -305,8 +305,8 @@ async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn
     const modRestantes = 3 - memPartido.ModificacionesUsadas;
 
     let msgConfirm = `¿Guardar pronóstico ${partido.local} vs ${partido.visitante}?`;
-    if (modRestantes === 2) msgConfirm += `\n\n⚠️ Al guardar te quedará 1 último cambio.`;
-    else if (modRestantes === 1) msgConfirm += `\n\n⚠️ Este es tu ÚLTIMO cambio. Quedará sellado.`;
+    if (modRestantes === 2) msgConfirm += `\n\n⚠️ Al guardar te quedará 1 último cambio para este partido.`;
+    else if (modRestantes === 1) msgConfirm += `\n\n⚠️ Este es tu ÚLTIMO cambio para este partido. Después quedará sellado.`;
     if (!confirm(msgConfirm)) return;
 
     try {
@@ -341,11 +341,11 @@ async function guardarPartidoIndividual(partido, inputLocal, inputVisitante, btn
                 btn.disabled  = true;
                 inputLocal.readOnly = inputVisitante.readOnly = true;
             } else if (nuevasMod === 1) {
-                btn.innerHTML        = `💾 <small style="color:#e74c3c;">⚠️ Último cambio</small>`;
+                btn.innerHTML        = `💾 <small style="color:#e74c3c;">⚠️ Último cambio disponible</small>`;
                 btn.style.borderColor = "rgba(231,76,60,.6)";
                 btn.style.background  = "rgba(231,76,60,.08)";
             } else {
-                btn.innerHTML        = `💾 <small style="color:#f1c40f;">Guardar (te queda 2 más)</small>`;
+                btn.innerHTML        = `💾 <small style="color:#f1c40f;">Guardar (te quedarán 2 cambios más)</small>`;
                 btn.style.borderColor = "rgba(241,196,15,.5)";
                 btn.style.background  = "";
             }

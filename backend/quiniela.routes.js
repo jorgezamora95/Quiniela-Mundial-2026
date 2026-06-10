@@ -186,7 +186,7 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
                 );
             } else {
                 await query(
-                    `INSERT INTO partidos_desbloqueados (id_usuario,partido_id,modificaciones_usadas,goles_gastados) VALUES ($1,$2,1,0)`,
+                    `INSERT INTO partidos_desbloqueados (id_usuario,partido_id,modificaciones_usadas,goles_gastados) VALUES ($1,$2,0,0)`,
                     [idUsuario, pro.partidoId]
                 );
             }
