@@ -396,7 +396,7 @@ router.post('/guardar-resultado', validarTokenAdmin, async (req, res) => {
                 puntos=3; 
                 estado='Acierto'; 
             }
-            enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local||'Local', visitante:visitante||'Visitante', golesLocal, golesVisitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId }).catch(console.error);
+            await enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local||'Local', visitante:visitante||'Visitante', golesLocal, golesVisitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId });
         }
     } catch (error) {
         console.error(error);
@@ -942,7 +942,7 @@ router.post('/admin/validar-pendiente', async (req, res) => {
             let puntos=0, estado='Falló';
             if (pro.pro_local===goles_local&&pro.pro_visitante===goles_visitante) { puntos=5; estado='Exacto'; }
             else if ((pro.pro_local>pro.pro_visitante&&goles_local>goles_visitante)||(pro.pro_local<pro.pro_visitante&&goles_local<goles_visitante)||(pro.pro_local===pro.pro_visitante&&goles_local===goles_visitante)) { puntos=3; estado='Acierto'; }
-            enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local_nombre, visitante:visitante_nombre, golesLocal:goles_local, golesVisitante:goles_visitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId }).catch(console.error);
+            await enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local_nombre, visitante:visitante_nombre, golesLocal:goles_local, golesVisitante:goles_visitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId });
         }
 
         return res.json({ ok: true, message: '✅ Resultado validado y correos enviados.' });
