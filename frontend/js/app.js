@@ -4,6 +4,8 @@ let suscripcionActiva     = false;
 let pronosticosMemoria    = {};
 let pronosticosGuardadosGlobal = [];
 let grupoActivoActual     = 'TODOS';
+window.resultadosRealesGlobal = window.resultadosRealesGlobal || [];
+
 
 async function authFetch(url, options = {}) {
     const token = localStorage.getItem("token");
@@ -33,10 +35,11 @@ async function inicializarQuiniela() {
     }
 
     try {
-        const [resPartidos, resQuiniela, resDatos] = await Promise.all([
+        const [resPartidos, resQuiniela, resDatos, resResultados] = await Promise.all([
             fetch("./data/partidos.json"),
             authFetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`),
-            authFetch(`${API_URL}/api/mis-datos/${idUsuario}`)
+            authFetch(`${API_URL}/api/mis-datos/${idUsuario}`),
+            fetch(`${API_URL}/api/obtener-resultados`).catch(e => { console.error(e); return null; })
         ]);
 
         partidosGlobal              = await resPartidos.json();
@@ -44,6 +47,13 @@ async function inicializarQuiniela() {
         const datosDB               = await resQuiniela.json();
         const datosSub              = await resDatos.json();
         pronosticosGuardadosGlobal  = datosDB.pronosticos || [];
+
+        if (resResultados) {
+            const dataRes = await resResultados.json();
+            if (dataRes.ok) {
+                window.resultadosRealesGlobal = dataRes.resultados || [];
+            }
+        }
 
         suscripcionActiva = datosSub.ok && datosSub.suscripcion !== null;
         actualizarPanelGoles(datosSub.suscripcion, datosSub.partidosDesbloqueados);
@@ -259,7 +269,13 @@ function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
         const estadoDiv = document.createElement("div");
         estadoDiv.className = "estado-col";
 
-        if (yaEmpezó) {
+        const realResult = (window.resultadosRealesGlobal || []).find(r => r.PartidoId === partido.id);
+
+        if (realResult) {
+            inputLocal.readOnly = inputVisitante.readOnly = true;
+            row.style.opacity   = "0.85";
+            estadoDiv.innerHTML = `<span class="badge-estado-partido finalizado">🏁 Finalizado: ${realResult.GolesLocal} - ${realResult.GolesVisitante}</span>`;
+        } else if (yaEmpezó) {
             inputLocal.readOnly = inputVisitante.readOnly = true;
             row.style.opacity   = "0.4";
             estadoDiv.innerHTML = `<span class="badge-estado-partido en-juego">⏱ En juego</span>`;
