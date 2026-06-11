@@ -459,11 +459,25 @@ function obtenerEmojiBandera(codigoPais) {
 
 function iniciarTemporizador() {
     const fechaMundial    = new Date("June 11, 2026 13:00:00 GMT-0600").getTime();
-    const contenedorReloj = document.querySelector(".timer-card h3");
+    const cardReloj       = document.querySelector(".timer-card");
+    if (!cardReloj) return;
+
+    const inicialDistancia = fechaMundial - Date.now();
+    if (inicialDistancia < 0) {
+        cardReloj.style.display = "none";
+        return;
+    }
+
+    const contenedorReloj = cardReloj.querySelector("h3");
     if (!contenedorReloj) return;
+
     const intervalo = setInterval(() => {
         const distancia = fechaMundial - Date.now();
-        if (distancia < 0) { clearInterval(intervalo); contenedorReloj.textContent = "00 : 00 : 00 : 00"; return; }
+        if (distancia < 0) {
+            clearInterval(intervalo);
+            cardReloj.style.display = "none";
+            return;
+        }
         const d=Math.floor(distancia/86400000), h=Math.floor((distancia%86400000)/3600000),
               m=Math.floor((distancia%3600000)/60000), s=Math.floor((distancia%60000)/1000);
         contenedorReloj.textContent = `${String(d).padStart(2,"0")} : ${String(h).padStart(2,"0")} : ${String(m).padStart(2,"0")} : ${String(s).padStart(2,"0")}`;
