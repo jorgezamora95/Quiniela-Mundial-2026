@@ -372,7 +372,7 @@ async function inicializarPronosticoCampeon() {
     const panel     = document.getElementById("panelCampeon");
     if (!panel) return;
 
-    const DEADLINE     = new Date("June 11, 2026 13:00:00 GMT-0600").getTime();
+    const DEADLINE     = new Date("June 11, 2026 11:00:00 GMT-0600").getTime();
     const yaInicio     = Date.now() >= DEADLINE;
     const selectCampeon = document.getElementById("selectCampeon");
     const inputGL       = document.getElementById("inputCampeonGL");
