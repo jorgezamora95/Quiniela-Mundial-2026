@@ -1095,4 +1095,21 @@ router.get('/mis-puntos-grupo/:idUsuario', validarTokenUsuario, async (req, res)
     }
 });
 
+router.get('/debug-email-logs', async (req, res) => {
+    try {
+        const result = await query(`
+            SELECT l.id_log AS "IdLog", u.nombre AS "Nombre", u.correo AS "Correo",
+                   l.accion AS "Accion", l.detalle AS "Detalle",
+                   l.fecha AS "Fecha", l.exito AS "Exito", l.error_message AS "ErrorMessage"
+            FROM logs_actividad l
+            LEFT JOIN usuarios u ON l.id_usuario=u.id_usuario
+            WHERE l.accion = 'enviar_correo_resultado'
+            ORDER BY l.fecha DESC LIMIT 50
+        `);
+        return res.json({ ok: true, logs: result.rows });
+    } catch (e) {
+        return res.status(500).json({ ok: false, error: e.message });
+    }
+});
+
 module.exports = router;
