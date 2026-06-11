@@ -472,28 +472,51 @@ router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
     }
 });
 
+async function obtenerTablaGeneralRankings() {
+    const result = await query(`
+        SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre", u.foto_url AS "FotoUrl", u.correo AS "Correo",
+               COALESCE(p.puntos_totales,0) AS "Puntos",
+               (SELECT COUNT(*) FROM pronosticos pr WHERE pr.id_usuario=u.id_usuario) AS "Predicciones",
+               (SELECT COUNT(*) FROM pronosticos pr
+                INNER JOIN resultados_reales rr ON pr.partido_id=rr.partido_id
+                WHERE pr.id_usuario=u.id_usuario AND (
+                    (pr.goles_local=rr.goles_local AND pr.goles_visitante=rr.goles_visitante) OR
+                    (pr.goles_local>pr.goles_visitante AND rr.goles_local>rr.goles_visitante) OR
+                    (pr.goles_local<pr.goles_visitante AND rr.goles_local<rr.goles_visitante) OR
+                    (pr.goles_local=pr.goles_visitante AND rr.goles_local=rr.goles_visitante)
+                )) AS "Aciertos"
+        FROM usuarios u
+        LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
+        WHERE u.activo=TRUE AND u.id_usuario != 1
+        ORDER BY "Puntos" DESC, "Aciertos" DESC, u.nombre ASC
+    `);
+
+    const rows = result.rows;
+    let rank = 1;
+    for (let i = 0; i < rows.length; i++) {
+        if (i > 0) {
+            const prev = rows[i - 1];
+            const curr = rows[i];
+            if (curr.Puntos !== prev.Puntos || curr.Aciertos !== prev.Aciertos) {
+                rank = i + 1;
+            }
+        }
+        rows[i].PosicionReal = rank;
+        rows[i].Posicion = rank;
+        rows[i].posicion = rank;
+        rows[i].id_usuario = rows[i].IdUsuario;
+        rows[i].nombre = rows[i].Nombre;
+        rows[i].correo = rows[i].Correo;
+        rows[i].puntos = rows[i].Puntos;
+    }
+    return rows;
+}
+
 // ─── TABLA GENERAL ────────────────────────────────────────────────────────────
 router.get('/tabla-general', async (req, res) => {
     try {
-        const result = await query(`
-            SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre", u.foto_url AS "FotoUrl",
-                   COALESCE(p.puntos_totales,0) AS "Puntos",
-                   DENSE_RANK() OVER (ORDER BY COALESCE(p.puntos_totales,0) DESC) AS "PosicionReal",
-                   (SELECT COUNT(*) FROM pronosticos pr WHERE pr.id_usuario=u.id_usuario) AS "Predicciones",
-                   (SELECT COUNT(*) FROM pronosticos pr
-                    INNER JOIN resultados_reales rr ON pr.partido_id=rr.partido_id
-                    WHERE pr.id_usuario=u.id_usuario AND (
-                        (pr.goles_local=rr.goles_local AND pr.goles_visitante=rr.goles_visitante) OR
-                        (pr.goles_local>pr.goles_visitante AND rr.goles_local>rr.goles_visitante) OR
-                        (pr.goles_local<pr.goles_visitante AND rr.goles_local<rr.goles_visitante) OR
-                        (pr.goles_local=pr.goles_visitante AND rr.goles_local=rr.goles_visitante)
-                    )) AS "Aciertos"
-            FROM usuarios u
-            LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
-            WHERE u.activo=TRUE AND u.id_usuario != 1
-            ORDER BY "Puntos" DESC, "Aciertos" DESC, u.nombre ASC
-        `);
-        return res.json({ ok: true, ranking: result.rows });
+        const ranking = await obtenerTablaGeneralRankings();
+        return res.json({ ok: true, ranking });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -513,11 +536,8 @@ router.get('/mis-resultados/:idUsuario', validarTokenUsuario, async (req, res) =
             [idUsuario]
         );
 
-        const rankingQ = await query(
-            `SELECT id_usuario, DENSE_RANK() OVER (ORDER BY COALESCE(puntos_totales,0) DESC) AS posicion
-             FROM puntajes`
-        );
-        const miPos = rankingQ.rows.find(u => u.id_usuario === idUsuario);
+        const ranking = await obtenerTablaGeneralRankings();
+        const miPos = ranking.find(u => u.IdUsuario === idUsuario);
 
         let exactos=0, correctos=0, fallados=0, pendientes=0, puntos=0;
         const historial = result.rows.map(row => {
@@ -742,15 +762,7 @@ router.get('/admin/bolsa', async (req, res) => {
         const premio2 = bolsaPremios * (pctPremio2 / 100);
         const premio3 = bolsaPremios * (pctPremio3 / 100);
 
-        const rankingResult = await query(`
-            SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre",
-                   COALESCE(p.puntos_totales,0) AS "Puntos",
-                   DENSE_RANK() OVER (ORDER BY COALESCE(p.puntos_totales,0) DESC) AS "Posicion"
-            FROM usuarios u LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
-            WHERE u.activo=TRUE LIMIT 5
-        `);
-
-        const ranking = rankingResult.rows;
+        const ranking = await obtenerTablaGeneralRankings();
         const pos1 = ranking.filter(u => u.Posicion === 1);
         const pos2 = ranking.filter(u => u.Posicion === 2);
         const pos3 = ranking.filter(u => u.Posicion === 3);
@@ -818,28 +830,21 @@ router.post('/admin/revelar-ganadores', async (req, res) => {
         const premio2 = bolsaPremios * (pctPremio2 / 100);
         const premio3 = bolsaPremios * (pctPremio3 / 100);
 
-        const rankingResult = await query(`
-            SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre",
-                   COALESCE(p.puntos_totales,0) AS "Puntos",
-                   DENSE_RANK() OVER (ORDER BY COALESCE(p.puntos_totales,0) DESC) AS "Posicion"
-            FROM usuarios u LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario WHERE u.activo=TRUE AND u.id_usuario <> 1
-        `);
-
-        const ranking = rankingResult.rows;
+        const ranking = await obtenerTablaGeneralRankings();
         const groups = {};
         ranking.forEach(u => {
-            if (!groups[u.Puntos]) groups[u.Puntos] = [];
-            groups[u.Puntos].push(u);
+            if (!groups[u.Posicion]) groups[u.Posicion] = [];
+            groups[u.Posicion].push(u);
         });
 
-        const sortedPoints = Object.keys(groups).map(Number).sort((a,b) => b - a);
+        const sortedRanks = Object.keys(groups).map(Number).sort((a,b) => a - b);
         const prizes = [premio1, premio2, premio3];
         let distribucion = [];
 
         let prizeIdx = 0;
-        for (const pts of sortedPoints) {
+        for (const rk of sortedRanks) {
             if (prizeIdx >= prizes.length) break;
-            const groupUsers = groups[pts];
+            const groupUsers = groups[rk];
             const L = groupUsers.length;
             const groupPrizes = prizes.slice(prizeIdx, prizeIdx + L);
             prizeIdx += L;
@@ -871,12 +876,8 @@ router.post('/admin/revelar-ganadores', async (req, res) => {
 
         await query(`UPDATE config_quiniela SET valor='1' WHERE clave='GanadoresRevelados'`);
 
-        const todos = await query(
-            `SELECT u.id_usuario, u.nombre, u.correo, COALESCE(p.puntos_totales,0) AS puntos,
-                    DENSE_RANK() OVER (ORDER BY COALESCE(p.puntos_totales,0) DESC) AS posicion
-             FROM usuarios u LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
-             WHERE u.activo=TRUE AND u.correo IS NOT NULL AND u.correo!=''`
-        );
+        const todosResult = await obtenerTablaGeneralRankings();
+        const todos = { rows: todosResult.filter(u => u.Correo && u.Correo !== '') };
 
         const fmt = n => `$${Number(n).toLocaleString('es-MX',{minimumFractionDigits:2})} MXN`;
         const medallas = {1:'🥇',2:'🥈',3:'🥉'};
