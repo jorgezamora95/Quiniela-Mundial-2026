@@ -763,16 +763,41 @@ router.get('/admin/bolsa', async (req, res) => {
         const premio3 = bolsaPremios * (pctPremio3 / 100);
 
         const ranking = await obtenerTablaGeneralRankings();
-        const pos1 = ranking.filter(u => u.Posicion === 1);
-        const pos2 = ranking.filter(u => u.Posicion === 2);
-        const pos3 = ranking.filter(u => u.Posicion === 3);
-        const combinar = (arr, premios) => { const t=premios.reduce((a,b)=>a+b,0); return arr.map(u=>({...u,montoPremio:t/arr.length,porcentaje:((t/bolsaPremios)*100/arr.length).toFixed(2)})); };
+        const groups = {};
+        ranking.forEach(u => {
+            if (!groups[u.Posicion]) groups[u.Posicion] = [];
+            groups[u.Posicion].push(u);
+        });
 
+        const sortedRanks = Object.keys(groups).map(Number).sort((a,b) => a - b);
+        const prizes = [premio1, premio2, premio3];
         let distribucion = [];
-        if (pos1.length>1)      distribucion=[...combinar(pos1,[premio1,premio2]),...combinar(pos2.length?pos2:pos3,[premio3])];
-        else if (pos2.length>1) distribucion=[...combinar(pos1,[premio1]),...combinar(pos2,[premio2,premio3])];
-        else if (pos3.length>1) distribucion=[...combinar(pos1,[premio1]),...combinar(pos2,[premio2]),...combinar(pos3,[premio3])];
-        else distribucion=[...(pos1[0]?[{...pos1[0],montoPremio:premio1,porcentaje:pctPremio1.toFixed(2)}]:[]),...(pos2[0]?[{...pos2[0],montoPremio:premio2,porcentaje:pctPremio2.toFixed(2)}]:[]),...(pos3[0]?[{...pos3[0],montoPremio:premio3,porcentaje:pctPremio3.toFixed(2)}]:[])];
+
+        let prizeIdx = 0;
+        for (const rk of sortedRanks) {
+            if (prizeIdx >= prizes.length) break;
+            const groupUsers = groups[rk];
+            const L = groupUsers.length;
+            const groupPrizes = prizes.slice(prizeIdx, prizeIdx + L);
+            prizeIdx += L;
+
+            if (groupPrizes.length === 0) break;
+
+            const sumPrizes = groupPrizes.reduce((a,b) => a + b, 0);
+            const prizePerUser = sumPrizes / L;
+            const pctPerUser = ((sumPrizes / bolsaPremios) * 100 / L).toFixed(2);
+
+            groupUsers.forEach(u => {
+                distribucion.push({
+                    IdUsuario: u.IdUsuario,
+                    Nombre: u.Nombre,
+                    Puntos: u.Puntos,
+                    Posicion: u.Posicion,
+                    montoPremio: prizePerUser,
+                    porcentaje: pctPerUser
+                });
+            });
+        }
 
         return res.json({ ok:true, totalRecaudado, totalParticipantes, bolsaPremios, cuotaAdmin, premio1, premio2, premio3, distribucion, ranking });
     } catch (error) {
