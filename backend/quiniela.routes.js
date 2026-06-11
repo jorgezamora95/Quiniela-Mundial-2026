@@ -76,7 +76,7 @@ const transporter = nodemailer.createTransport({
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
 });
 
-async function enviarCorreoResultado({ correo, nombre, local, visitante, golesLocal, golesVisitante, proLocal, proVisitante, puntos, estado, asunto, htmlPersonalizado }) {
+async function enviarCorreoResultado({ correo, nombre, local, visitante, golesLocal, golesVisitante, proLocal, proVisitante, puntos, estado, asunto, htmlPersonalizado, idUsuario, partidoId }) {
     const emojis = { 'Exacto':'🎯', 'Acierto':'✅', 'Falló':'❌', 'Pendiente':'⏳' };
     const emoji  = emojis[estado] || '⚽';
     const html = htmlPersonalizado || `
@@ -102,12 +102,31 @@ async function enviarCorreoResultado({ correo, nombre, local, visitante, golesLo
         </div>
     </div>`;
 
-    await transporter.sendMail({
-        from:    process.env.EMAIL_FROM,
-        to:      correo,
-        subject: asunto || `${emoji} Resultado: ${local} ${golesLocal}-${golesVisitante} ${visitante} | Quiniela 2026`,
-        html
-    });
+    try {
+        await transporter.sendMail({
+            from:    process.env.EMAIL_FROM,
+            to:      correo,
+            subject: asunto || `${emoji} Resultado: ${local} ${golesLocal}-${golesVisitante} ${visitante} | Quiniela 2026`,
+            html
+        });
+        await registrarLogActividad({
+            idUsuario: idUsuario || null,
+            accion: 'enviar_correo_resultado',
+            partidoId: partidoId || null,
+            detalle: `Correo enviado a ${correo} (${estado})`,
+            exito: true
+        });
+    } catch (err) {
+        console.error(`❌ Error enviando correo a ${correo}:`, err);
+        await registrarLogActividad({
+            idUsuario: idUsuario || null,
+            accion: 'enviar_correo_resultado',
+            partidoId: partidoId || null,
+            detalle: `Fallo correo a ${correo}: ${err.message}`,
+            exito: false,
+            errorMessage: err.message
+        });
+    }
 }
 
 // ─── SCHEMAS ──────────────────────────────────────────────────────────────────
@@ -377,7 +396,7 @@ router.post('/guardar-resultado', validarTokenAdmin, async (req, res) => {
                 puntos=3; 
                 estado='Acierto'; 
             }
-            enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local||'Local', visitante:visitante||'Visitante', golesLocal, golesVisitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado }).catch(console.error);
+            enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local||'Local', visitante:visitante||'Visitante', golesLocal, golesVisitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId }).catch(console.error);
         }
     } catch (error) {
         console.error(error);
@@ -870,7 +889,7 @@ router.post('/admin/revelar-ganadores', async (req, res) => {
                 ${ganadorInfo?`<div style="padding:1.5rem;text-align:center;"><p style="font-size:3rem;">${medallas[ganadorInfo.Posicion]}</p><h2 style="color:#2ecc71;">¡Felicidades ${u.nombre}!</h2><p>Premio: <strong style="color:#f1c40f;font-size:1.5rem;">${fmt(ganadorInfo.montoPremio)}</strong></p></div>`:`<div style="padding:1.5rem;text-align:center;"><p>Hola ${u.nombre}, terminaste en ${u.posicion}° con ${u.puntos} pts. ¡Gracias por participar!</p></div>`}
                 <div style="padding:1rem;"><table style="width:100%;"><thead><tr><th>Pos</th><th>Nombre</th><th>Puntos</th><th>Premio</th></tr></thead><tbody>${tablaHTML}</tbody></table></div>
                 <div style="padding:1rem;text-align:center;"><small>Quiniela Mundial 2026 — torreslab</small></div></div>`;
-            enviarCorreoResultado({ correo:u.correo, nombre:u.nombre, asunto:'🏆 Resultados Quiniela Mundial 2026', htmlPersonalizado:html }).catch(console.error);
+            enviarCorreoResultado({ correo:u.correo, nombre:u.nombre, asunto:'🏆 Resultados Quiniela Mundial 2026', htmlPersonalizado:html, idUsuario:u.id_usuario }).catch(console.error);
         }
 
         return res.json({ ok: true, message: `🏆 Ganadores revelados y correos enviados.`, distribucion });
@@ -923,7 +942,7 @@ router.post('/admin/validar-pendiente', async (req, res) => {
             let puntos=0, estado='Falló';
             if (pro.pro_local===goles_local&&pro.pro_visitante===goles_visitante) { puntos=5; estado='Exacto'; }
             else if ((pro.pro_local>pro.pro_visitante&&goles_local>goles_visitante)||(pro.pro_local<pro.pro_visitante&&goles_local<goles_visitante)||(pro.pro_local===pro.pro_visitante&&goles_local===goles_visitante)) { puntos=3; estado='Acierto'; }
-            enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local_nombre, visitante:visitante_nombre, golesLocal:goles_local, golesVisitante:goles_visitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado }).catch(console.error);
+            enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local_nombre, visitante:visitante_nombre, golesLocal:goles_local, golesVisitante:goles_visitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId }).catch(console.error);
         }
 
         return res.json({ ok: true, message: '✅ Resultado validado y correos enviados.' });
