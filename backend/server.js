@@ -14,6 +14,34 @@ app.use(cors({
 
 app.use(express.json({ limit: '100kb' }));
 
+// Rate Limiter para Login y Restablecer Password (en memoria)
+const intentosLogin = new Map();
+
+function rateLimiterLogin(req, res, next) {
+    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const ahora = Date.now();
+    const registro = intentosLogin.get(ip) || { conteo: 0, ultimoIntento: 0 };
+
+    // Bloquear si ha hecho más de 5 intentos fallidos en los últimos 15 minutos
+    if (registro.conteo >= 5 && (ahora - registro.ultimoIntento) < 15 * 60 * 1000) {
+        const minRestantes = Math.ceil((15 * 60 * 1000 - (ahora - registro.ultimoIntento)) / 60000);
+        return res.status(429).json({
+            ok: false,
+            message: `⛔ Demasiados intentos. Inténtalo de nuevo en ${minRestantes} minuto${minRestantes !== 1 ? 's' : ''}.`
+        });
+    }
+
+    // Reiniciar conteo si pasó más de 15 minutos desde el último intento
+    if ((ahora - registro.ultimoIntento) > 15 * 60 * 1000) {
+        registro.conteo = 0;
+    }
+
+    registro.conteo++;
+    registro.ultimoIntento = ahora;
+    intentosLogin.set(ip, registro);
+    next();
+}
+
 // ─── REGISTRO ────────────────────────────────────────────────────────────────
 app.post("/api/registro", async (req, res) => {
     try {
@@ -69,7 +97,7 @@ app.post("/api/registro", async (req, res) => {
 });
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-app.post("/api/login", async (req, res) => {
+app.post("/api/login", rateLimiterLogin, async (req, res) => {
     try {
         const { correo, password } = req.body;
 
@@ -93,6 +121,9 @@ app.post("/api/login", async (req, res) => {
         const adminToken = usuario.IdUsuario === 1
             ? crypto.createHmac('sha256', secret).update('1').digest('hex')
             : null;
+
+        const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        intentosLogin.delete(ip);
 
         res.json({
             ok: true,
@@ -175,7 +206,7 @@ app.post("/api/actualizar-perfil", validarTokenUsuario, async (req, res) => {
 });
 
 // ─── RESTABLECER PASSWORD ─────────────────────────────────────────────────────
-app.post("/api/restablecer-password", async (req, res) => {
+app.post("/api/restablecer-password", rateLimiterLogin, async (req, res) => {
     try {
         const { correo, respuestaSeguridad, nuevaPassword } = restablecerSchema.parse(req.body);
 
@@ -197,6 +228,9 @@ app.post("/api/restablecer-password", async (req, res) => {
             `UPDATE usuarios SET password_hash=$1 WHERE id_usuario=$2`,
             [nuevaPasswordHash, usuario.IdUsuario]
         );
+
+        const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+        intentosLogin.delete(ip);
 
         return res.json({ ok: true, message: "¡Contraseña actualizada con éxito!" });
 
