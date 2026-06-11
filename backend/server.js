@@ -242,7 +242,7 @@ app.post("/api/restablecer-password", rateLimiterLogin, async (req, res) => {
 
 // ─── RUTAS EXTERNAS ───────────────────────────────────────────────────────────
 app.use('/api', require('./quiniela.routes'));
-// require('./sync-resultados'); // ← descomentar el 11 de Junio
+require('./sync-resultados'); // ← descomentar el 11 de Junio
 
 app.listen(process.env.PORT || 3000, "0.0.0.0", () => {
     console.log(`Servidor corriendo en http://0.0.0.0:${process.env.PORT || 3000}`);
