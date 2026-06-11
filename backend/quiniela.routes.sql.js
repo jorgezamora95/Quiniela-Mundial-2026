@@ -448,7 +448,7 @@ router.get('/mis-resultados/:idUsuario', validarTokenUsuario, async (req, res) =
 router.post('/campeon', validarTokenUsuario, async (req, res) => {
     let idUsuario=null, seleccion=null, gl=null, gv=null;
     try {
-        const DEADLINE = new Date("2026-06-11T11:00:00 GMT-0600").getTime();
+        const DEADLINE = new Date("2026-06-11T13:00:00 GMT-0600").getTime();
         const body = req.body;
         idUsuario = body?.idUsuario; seleccion = body?.seleccionCampeon; gl = body?.golesLocal; gv = body?.golesVisitante;
 
