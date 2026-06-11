@@ -1,3 +1,15 @@
+// Helper fetch wrapper to attach x-user-token header
+async function authFetch(url, options = {}) {
+    const token = localStorage.getItem("token");
+    if (!options.headers) {
+        options.headers = {};
+    }
+    if (token) {
+        options.headers["x-user-token"] = token;
+    }
+    return fetch(url, options);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     cargarDatosActuales();
     configurarFormularioPerfil();
@@ -114,7 +126,7 @@ function configurarFormularioPerfil() {
             btnGuardar.disabled = true;
             btnGuardar.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Guardando...`;
 
-            const response = await fetch(`${API_URL}/api/actualizar-perfil`, {
+            const response = await authFetch(`${API_URL}/api/actualizar-perfil`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -148,6 +160,11 @@ function configurarFormularioPerfil() {
             const nombreSidebar = document.getElementById("txtNombreUsuarioSidebar") || document.querySelector(".user-data h3");
             if (nombreSidebar) {
                 nombreSidebar.textContent = nuevoNombre;
+            }
+
+            const imgSidebar = document.getElementById("imgAvatarSidebar");
+            if (imgSidebar) {
+                imgSidebar.src = nuevaFotoUrl !== "" ? nuevaFotoUrl : "./img/user-icon.png";
             }
 
             mostrarMensaje("✅ Perfil actualizado correctamente.", "success");

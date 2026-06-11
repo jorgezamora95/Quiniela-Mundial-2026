@@ -1,77 +1,97 @@
-<!-- BOTÓN HAMBURGUESA (solo visible en móvil) -->
+<!-- BOTÓN HAMBURGUESA -->
 <button class="hamburger-btn" id="btnHamburger" aria-label="Abrir menú">
     <i class="fa-solid fa-bars"></i>
 </button>
 
-<!-- OVERLAY oscuro al abrir el menú en móvil -->
+<!-- OVERLAY -->
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <aside class="sidebar" id="sidebar">
-    <div class="brand">
-        <img src="./img/2026_FIFA_World_Cup_Logo_29.png" alt="logo">
-        <h1>QUINIELA <span>MUNDIAL 2026</span></h1>
+
+    <!-- BRAND -->
+    <div class="sidebar-brand">
+        <div class="sidebar-brand__logo">
+            <img src="./img/2026_FIFA_World_Cup_Logo_29.png" alt="FIFA 2026">
+        </div>
+        <div class="sidebar-brand__text">
+            <span class="sidebar-brand__title">QUINIELA</span>
+            <span class="sidebar-brand__sub">MUNDIAL 2026</span>
+        </div>
     </div>
 
-    <div class="menu-container">
-        <ul class="menu" id="menuPrincipal">
-            <li class="menu-item menu-item-static">
-                <a href="index.html" class="menu-link">
-                    <i class="fa-solid fa-house"></i>
-                    <span>Dashboard</span>
-                </a>
-            </li>
-            <li class="menu-item menu-item-static">
-                <a href="mi-quiniela.html" class="menu-link">
-                    <i class="fa-solid fa-clipboard-list"></i>
-                    <span>Mi Quiniela</span>
-                </a>
-            </li>
-            <li class="menu-item menu-item-static">
-                <a href="tabla-general.html" class="menu-link">
-                    <i class="fa-solid fa-trophy"></i>
-                    <span>Tabla General</span>
-                </a>
-            </li>
-            <li class="menu-item menu-item-static">
-                <a href="mis-resultados.html" class="menu-link">
-                    <i class="fa-solid fa-chart-simple"></i>
-                    <span>Mis Resultados</span>
-                </a>
-            </li>
-            <li class="menu-item menu-item-static">
-                <a href="reglas.html" class="menu-link">
-                    <i class="fa-solid fa-file-lines"></i>
-                    <span>Reglamento</span>
-                </a>
-            </li>
-            <li class="menu-item menu-item-static">
-                <a href="opciones.html" class="menu-link">
-                    <i class="fa-brands fa-jedi-order"></i>
-                    <span>Opciones</span>
-                </a>
-            </li>
-        </ul>
-    </div>
+    <!-- DIVIDER -->
+    <div class="sidebar-divider"></div>
 
-    <div class="footer">
-        <div class="user">
-            <div class="user-img">
+    <!-- NAV -->
+    <nav class="sidebar-nav" id="menuPrincipal">
+
+        <a href="dashboard.html" class="sidebar-link">
+            <span class="sidebar-link__icon">
+                <i class="fa-solid fa-house"></i>
+            </span>
+            <span class="sidebar-link__label">Dashboard</span>
+        </a>
+
+        <a href="mi-quiniela.html" class="sidebar-link">
+            <span class="sidebar-link__icon">
+                <i class="fa-solid fa-clipboard-list"></i>
+            </span>
+            <span class="sidebar-link__label">Mi Quiniela</span>
+        </a>
+
+        <a href="tabla-general.html" class="sidebar-link">
+            <span class="sidebar-link__icon">
+                <i class="fa-solid fa-trophy"></i>
+            </span>
+            <span class="sidebar-link__label">Tabla General</span>
+        </a>
+
+        <a href="mis-resultados.html" class="sidebar-link">
+            <span class="sidebar-link__icon">
+                <i class="fa-solid fa-chart-simple"></i>
+            </span>
+            <span class="sidebar-link__label">Mis Resultados</span>
+        </a>
+
+        <a href="reglas.html" class="sidebar-link">
+            <span class="sidebar-link__icon">
+                <i class="fa-solid fa-file-lines"></i>
+            </span>
+            <span class="sidebar-link__label">Reglamento</span>
+        </a>
+
+        <a href="opciones.html" class="sidebar-link">
+            <span class="sidebar-link__icon">
+                <i class="fa-solid fa-gear"></i>
+            </span>
+            <span class="sidebar-link__label">Opciones</span>
+        </a>
+
+    </nav>
+
+    <!-- SPACER -->
+    <div style="flex:1;"></div>
+
+    <!-- FOOTER -->
+    <div class="sidebar-footer">
+
+        <div class="sidebar-user">
+            <div class="sidebar-user__avatar">
                 <img id="imgAvatarSidebar" src="./img/user-icon.png" alt="Avatar">
             </div>
-            <div class="user-data">
-                <h3 id="txtNombreUsuarioSidebar">Cargando...</h3>
+            <div class="sidebar-user__info">
+                <span id="txtNombreUsuarioSidebar" class="sidebar-user__name">Cargando...</span>
+                <span class="sidebar-user__role">Participante</span>
             </div>
-            <div class="user-icon">
-                <a href="#" id="btnCerrarSesion" class="logout-btn" title="Cerrar sesión">
-                    <i class="fa-solid fa-right-from-bracket"></i>
-                </a>
-            </div>
+            <a href="#" id="btnCerrarSesion" class="sidebar-logout" title="Cerrar sesión">
+                <i class="fa-solid fa-right-from-bracket"></i>
+            </a>
         </div>
-        <div style="padding:.8rem 1rem; border-top:1px solid rgba(255,255,255,.06); margin-top:auto;">
-            <p style="margin:0; font-size:.65rem; color:rgba(255,255,255,.25); text-align:center; line-height:1.5;">
-                © 2026 Quiniela Mundial<br>
-                <span style="color:rgba(46,204,113,.4);">Powered by ZamTech Data Engine</span>
-            </p>
+
+        <div class="sidebar-powered">
+            <span>© 2026 Quiniela Mundial</span>
+            <span class="sidebar-powered__brand">ZamTech Data Engine</span>
         </div>
+
     </div>
 </aside>

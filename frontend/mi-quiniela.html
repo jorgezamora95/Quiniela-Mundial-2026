@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Quiniela - Mundial 2026</title>
     <link rel="stylesheet" href="./css/mi-quiniela.css">
-    <link rel="stylesheet" href="./css/index.css">
+    <link rel="stylesheet" href="./css/sidebar.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/6.6.6/css/flag-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -20,7 +20,7 @@
             <div class="page-header">
                 <div>
                     <h2>Mi Quiniela</h2>
-                    <p>Desbloquea los partidos que quieras pronosticar</p>
+                    <p>Registra tus pronósticos antes de que inicien los partidos</p>
                 </div>
                 <div class="timer-card">
                     <div class="timer-info">
@@ -35,68 +35,102 @@
                         <span>DÍAS</span><span>HRS</span><span>MIN</span><span>SEG</span>
                     </div>
                 </div>
-                <div class="filtro-grupo">
-                    <label for="selectGrupo">Filtrar: </label>
-                    <select id="selectGrupo">
-                        <option value="TODOS">Todos</option>
-                        <option value="A">Grupo A</option><option value="B">Grupo B</option>
-                        <option value="C">Grupo C</option><option value="D">Grupo D</option>
-                        <option value="E">Grupo E</option><option value="F">Grupo F</option>
-                        <option value="G">Grupo G</option><option value="H">Grupo H</option>
-                        <option value="I">Grupo I</option><option value="J">Grupo J</option>
-                        <option value="K">Grupo K</option><option value="L">Grupo L</option>
-                    </select>
+            </div>
+
+            <!-- ─── TABS VISTA PRINCIPAL ────────────────────────── -->
+            <div class="vista-tabs" style="margin-bottom:1rem;">
+                <button class="vista-tab vista-tab--activo" id="tabVistaGrupos" onclick="cambiarVistaMain('grupos')">
+                    ⚽ Fase de Grupos
+                </button>
+                <button class="vista-tab" id="tabVistaEliminatorios" onclick="cambiarVistaMain('eliminatorios')">
+                    🏆 Eliminatorias
+                </button>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- VISTA: FASE DE GRUPOS                               -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <div id="vistaGrupos">
+
+                <!-- Tabs de grupos A-L -->
+                <div class="tabs-grupos-wrapper" id="tabsGruposQuiniela"></div>
+
+                <!-- Tabla simulación pronósticos usuario -->
+                <div id="tablaPronosticosGrupo" style="display:none;"></div>
+
+                <!-- Partidos -->
+                <div class="quiniela-card">
+                    <div class="quiniela-row table-head">
+                        <span>Partido</span>
+                        <span>Tu Pronóstico</span>
+                        <span>Fecha</span>
+                        <span>Estado</span>
+                    </div>
+                    <div id="quinielaContainer"></div>
+                </div>
+
+                <p class="warning">
+                    <i class="fa-solid fa-circle-info"></i>
+                    Máximo 3 modificaciones por partido. Los partidos en juego no se pueden modificar.
+                </p>
+
+                <div id="mensajeQuiniela"></div>
+
+                <!-- PRONÓSTICO CAMPEÓN -->
+                <div class="panel-campeon" id="panelCampeon">
+                    <div class="campeon-header">
+                        <span class="campeon-icon">🏆</span>
+                        <div>
+                            <h3>Pronóstico del Campeón</h3>
+                            <p>¿Quién ganará el Mundial 2026? Acertar te da <strong>15 pts</strong>, con marcador exacto <strong>25 pts</strong>.</p>
+                            <small style="color:#b8c2d6;">Solo tiempo regular — sin tiempo extra ni penales.</small>
+                        </div>
+                    </div>
+                    <div class="campeon-form">
+                        <div class="campeon-input-group">
+                            <label>Selección Campeona</label>
+                            <select id="selectCampeon" style="width:100%; background:#0d1f33; color:white; border:1px solid rgba(255,255,255,.2); padding:.6rem 1rem; border-radius:8px; margin-top:.3rem; height:42px; outline:none; cursor:pointer;">
+                                <option value="">-- Selecciona país --</option>
+                            </select>
+                        </div>
+                        <div class="campeon-marcador">
+                            <div class="campeon-input-group">
+                                <label>Goles Campeón</label>
+                                <input type="number" id="inputCampeonGL" min="0" max="20" placeholder="0">
+                            </div>
+                            <span class="campeon-vs">-</span>
+                            <div class="campeon-input-group">
+                                <label>Goles Rival</label>
+                                <input type="number" id="inputCampeonGV" min="0" max="20" placeholder="0">
+                            </div>
+                        </div>
+                        <button id="btnGuardarCampeon" class="btn-campeon">
+                            <i class="fa-solid fa-trophy"></i> Guardar pronóstico
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- TABLA DE PARTIDOS -->
-            <div class="quiniela-card">
-                <div class="quiniela-row table-head">
-                    <span>Partido</span>
-                    <span>Tu Pronóstico</span>
-                    <span>Fecha</span>
-                    <span>Estado</span>
+            <!-- ═══════════════════════════════════════════════════ -->
+            <!-- VISTA: ELIMINATORIOS                                -->
+            <!-- ═══════════════════════════════════════════════════ -->
+            <div id="vistaEliminatorios" style="display:none;">
+                <div style="background:rgba(241,196,15,.08); border:1px solid rgba(241,196,15,.2); border-radius:12px; padding:1rem 1.5rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem;">
+                    <span style="font-size:1.5rem;">ℹ️</span>
+                    <p style="margin:0; color:#b8c2d6; font-size:.9rem;">
+                        Los equipos se definirán a partir del <strong style="color:#f1c40f;">28 de Junio</strong> cuando termine la fase de grupos.
+                        Las fechas y sedes ya están confirmadas por la FIFA.
+                    </p>
                 </div>
-                <div id="quinielaContainer"></div>
-            </div>
 
-            <p class="warning">
-                <i class="fa-solid fa-circle-info"></i>
-                Máximo 3 modificaciones por partido. Los partidos en juego no se pueden modificar.
-                El costo de desbloqueo aumenta conforme se acerca el inicio del partido.
-            </p>
+                <!-- Tabs de fases -->
+                <div class="tabs-grupos-wrapper" id="tabsFases"></div>
 
-            <div id="mensajeQuiniela"></div>
-
-            <!-- ⚽ SECCIÓN PRONÓSTICO DE CAMPEÓN -->
-            <div class="panel-campeon" id="panelCampeon">
-                <div class="campeon-header">
-                    <span class="campeon-icon">🏆</span>
-                    <div>
-                        <h3>Pronóstico del Campeón</h3>
-                        <p>¿Quién ganará el Mundial 2026? Acertar te da <strong>15 pts</strong>, con marcador exacto <strong>25 pts</strong>.</p>
-                        <small style="color:#b8c2d6;">Solo tiempo regular — sin tiempo extra ni penales.</small>
+                <!-- Partidos de la fase seleccionada -->
+                <div class="quiniela-card" style="padding:1rem;">
+                    <div id="fasesContainer">
+                        <div style="text-align:center;padding:2rem;color:#b8c2d6;">Cargando...</div>
                     </div>
-                </div>
-                <div class="campeon-form">
-                    <div class="campeon-input-group">
-                        <label>Selección Campeona</label>
-                        <input type="text" id="inputCampeon" placeholder="Ej. México, Brasil, Argentina..." autocomplete="off">
-                    </div>
-                    <div class="campeon-marcador">
-                        <div class="campeon-input-group">
-                            <label>Goles Campeón</label>
-                            <input type="number" id="inputCampeonGL" min="0" max="20" placeholder="0">
-                        </div>
-                        <span class="campeon-vs">-</span>
-                        <div class="campeon-input-group">
-                            <label>Goles Rival</label>
-                            <input type="number" id="inputCampeonGV" min="0" max="20" placeholder="0">
-                        </div>
-                    </div>
-                    <button id="btnGuardarCampeon" class="btn-campeon">
-                        <i class="fa-solid fa-trophy"></i> Guardar pronóstico
-                    </button>
                 </div>
             </div>
 
@@ -104,8 +138,6 @@
 
         <!-- PANEL DERECHO -->
         <aside class="right-panel">
-
-            <!-- Perfil -->
             <div class="panel-card profile-card">
                 <div class="profile-header">
                     <img id="imgAvatarSidebar" src="./img/user-icon.png" alt="Avatar">
@@ -116,47 +148,39 @@
                 </div>
             </div>
 
-            <!-- Panel de Goles -->
-            <div class="panel-card" id="panelGoles" style="display:none;">
-                <h3>⚽ Mis Goles</h3>
-                <div class="goles-info">
-                    <div class="goles-row">
-                        <span id="txtPaquete">Sin plan</span>
-                        <strong id="txtGolesRestantes">0 goles</strong>
-                    </div>
-                    <div class="barra-goles-bg">
-                        <div class="barra-goles-fill" id="barGoles" style="width:100%"></div>
-                    </div>
-                    <small id="txtPartidosDesbloqueados" style="color:#b8c2d6;">0 / 0 partidos</small>
-                </div>
-
-                <!-- Tabla de costos -->
-                <div class="tabla-costos">
-                    <h4>Costo de desbloqueo</h4>
-                    <div class="costo-row"><span>Más de 1 hora antes</span><strong>1 gol</strong></div>
-                    <div class="costo-row urgente"><span>59 - 30 min antes</span><strong>3 goles</strong></div>
-                    <div class="costo-row critico"><span>29 - 5 min antes</span><strong>5 goles</strong></div>
-                    <div class="costo-row bloqueado"><span>Partido en juego</span><strong>No disponible</strong></div>
-                </div>
-            </div>
-
-            <!-- Reglas rápidas -->
             <div class="panel-card">
                 <h3>📋 Reglas de puntos</h3>
                 <div class="regla-row-q"><span>Marcador exacto</span><strong class="text-green">5 pts</strong></div>
                 <div class="regla-row-q"><span>Ganador correcto</span><strong class="text-green">3 pts</strong></div>
-                <div class="regla-row-q"><span>Empate correcto</span><strong class="text-green">3 pts</strong></div>
+                <div class="regla-row-q"><span>Empate correcto</span><strong class="text-green">1 pt</strong></div>
                 <div class="regla-row-q"><span>Campeón correcto</span><strong class="text-green">15 pts</strong></div>
                 <div class="regla-row-q"><span>Campeón + marcador</span><strong class="text-green">25 pts</strong></div>
                 <div class="regla-row-q"><span>Pronóstico incorrecto</span><strong style="color:#e74c3c;">0 pts</strong></div>
-                <div class="regla-row-q"><span>Consulta las reglas</span><strong style="color:#2ecc71;"></strong></div>
             </div>
-
         </aside>
     </main>
+
     <script src="./js/config.js"></script>
     <script src="./js/app.js"></script>
+    <script src="./js/fases.js"></script>
     <script src="./js/layout.js"></script>
     <script src="./js/sesion.js"></script>
+
+    <script>
+        let eliminatoriosCargados = false;
+
+        function cambiarVistaMain(vista) {
+            document.getElementById('vistaGrupos').style.display        = vista === 'grupos'        ? 'block' : 'none';
+            document.getElementById('vistaEliminatorios').style.display  = vista === 'eliminatorios' ? 'block' : 'none';
+            document.getElementById('tabVistaGrupos').classList.toggle('vista-tab--activo',        vista === 'grupos');
+            document.getElementById('tabVistaEliminatorios').classList.toggle('vista-tab--activo', vista === 'eliminatorios');
+
+            // Cargar eliminatorios solo la primera vez
+            if (vista === 'eliminatorios' && !eliminatoriosCargados) {
+                eliminatoriosCargados = true;
+                inicializarFases();
+            }
+        }
+    </script>
 </body>
 </html>

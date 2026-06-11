@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reglamento</title>
-    <link rel="stylesheet" href="./css/index.css">
+    <link rel="stylesheet" href="./css/sidebar.css">
     <link rel="stylesheet" href="./css/reglas.css">
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -16,7 +16,7 @@
         <div class="page-header">
             <div>
                 <h2>Reglamento</h2>
-                <p>Reglas oficiales de la Quiniela Mundial 2026 — torreslab</p>
+                <p>Reglas oficiales de la Quiniela Mundial 2026</p>
             </div>
         </div>
 
@@ -24,40 +24,36 @@
 
             <div class="rule-card rule-card--highlight">
                 <i class="fa-solid fa-futbol"></i>
-                <h3>1. Pase Mundialista</h3>
+                <h3>1. Participación</h3>
                 <p>Todos los participantes compiten bajo igualdad de condiciones en una única tabla general.</p>
                 <ul>
                     <li>💰 <strong>Costo de inscripción:</strong> $1,000 MXN</li>
-                    <li>⚽ <strong>Monedero inicial:</strong> 110 Goles</li>
                     <li>🏟️ <strong>Partidos disponibles:</strong> 104 (torneo completo)</li>
+                    <li>🔑 <strong>Acceso:</strong> El administrador activa tu cuenta una vez confirmado el pago.</li>
                 </ul>
                 <p style="color:#b8c2d6; font-size:.85rem; margin-top:.8rem;">
-                    Con anticipación mayor a 1 hora, 104 Goles cubren todos los partidos dejando <strong>6 Goles de reserva</strong>. Administra tu monedero con inteligencia.
-                </p>
-            </div>
-
-            <div class="rule-card">
-                <i class="fa-solid fa-coins"></i>
-                <h3>2. Sistema de Goles</h3>
-                <p>El costo de guardar o modificar un pronóstico varía según la proximidad del partido:</p>
-                <ul>
-                    <li>⏰ <strong>Más de 1 hora antes:</strong> 1 Gol</li>
-                    <li>⚡ <strong>59 a 30 minutos antes:</strong> 3 Goles</li>
-                    <li>🔴 <strong>29 a 5 minutos antes:</strong> 5 Goles</li>
-                    <li>🔒 <strong>Menos de 5 min o iniciado:</strong> Bloqueado</li>
-                </ul>
-                <p style="color:#b8c2d6; font-size:.85rem; margin-top:.8rem;">
-                    Si modificas tarde, el sistema cobra solo la <strong>diferencia</strong> respecto al costo original del último guardado.
+                    Sin activación del administrador no podrás registrar pronósticos.
                 </p>
             </div>
 
             <div class="rule-card">
                 <i class="fa-solid fa-clock"></i>
-                <h3>3. Ventana de Modificaciones</h3>
+                <h3>2. Cierre de Pronósticos</h3>
+                <p>Los pronósticos se bloquean automáticamente al momento en que inicia cada partido.</p>
                 <ul>
-                    <li>Máximo <strong>3 guardados por partido</strong>. Al tercero queda sellado.</li>
-                    <li>El costo se calcula con base en el <strong>timestamp del último guardado</strong>.</li>
-                    <li>Si no tienes Goles suficientes, el backend rechaza la transacción.</li>
+                    <li>🔒 Una vez iniciado el partido no se pueden registrar ni modificar pronósticos.</li>
+                    <li>📶 Es responsabilidad del participante registrar su pronóstico antes del inicio.</li>
+                    <li>⚙️ El administrador no puede ingresar o modificar pronósticos manualmente.</li>
+                </ul>
+            </div>
+
+            <div class="rule-card">
+                <i class="fa-solid fa-pen-to-square"></i>
+                <h3>3. Modificaciones</h3>
+                <p>Cada partido permite un máximo de <strong>3 guardados o modificaciones</strong> antes de que inicie.</p>
+                <ul>
+                    <li>Al realizar el <strong>segundo guardado</strong> se te avisará que te queda 1 cambio.</li>
+                    <li>Al realizar el <strong>tercer guardado</strong> el pronóstico quedará sellado permanentemente.</li>
                     <li>Partidos no pronosticados suman <strong>0 puntos</strong>.</li>
                 </ul>
             </div>
@@ -66,9 +62,12 @@
                 <i class="fa-solid fa-bullseye"></i>
                 <h3>4. Sistema de Puntos</h3>
                 <ul>
-                    <li>🎯 <strong>Marcador exacto → 5 puntos</strong></li>
-                    <li>✅ <strong>Ganador correcto → 3 puntos</strong></li>
-                    <li>🤝 <strong>Tendencia de empate → 3 puntos</strong></li>
+                    <li>🎯 <strong>Marcador exacto → 5 puntos</strong><br>
+                        <small style="color:#b8c2d6;">Ejemplo: pronosticaste 2-1 y el resultado fue 2-1</small></li>
+                    <li>✅ <strong>Ganador correcto → 3 puntos</strong><br>
+                        <small style="color:#b8c2d6;">Ejemplo: pronosticaste 2-0 y el resultado fue 3-1</small></li>
+                    <li>🤝 <strong>Empate correcto sin marcador exacto → 1 punto</strong><br>
+                        <small style="color:#b8c2d6;">Ejemplo: pronosticaste 1-1 y el resultado fue 2-2</small></li>
                     <li>❌ <strong>Pronóstico incorrecto → 0 puntos</strong></li>
                 </ul>
                 <p style="color:#f1c40f; font-size:.85rem; margin-top:.8rem;">
@@ -79,22 +78,23 @@
             <div class="rule-card">
                 <i class="fa-solid fa-trophy"></i>
                 <h3>5. Pronóstico del Campeón</h3>
-                <p>Predicción única e independiente — <strong>no consume Goles</strong> del monedero.</p>
+                <p>Cada participante puede registrar su selección campeona y el marcador de la Gran Final.</p>
                 <ul>
                     <li>🥇 <strong>Campeón correcto → 15 puntos</strong></li>
                     <li>🎯 <strong>Campeón + marcador exacto → 25 puntos</strong> (no acumulables)</li>
                 </ul>
                 <p style="color:#e74c3c; font-size:.85rem; margin-top:.8rem;">
-                    🔒 Se bloquea permanentemente al iniciar el partido inaugural. Sin excepciones.
+                    🔒 Se bloquea permanentemente al iniciar el partido inaugural del Mundial. Sin excepciones.
                 </p>
             </div>
 
             <div class="rule-card">
                 <i class="fa-solid fa-ranking-star"></i>
-                <h3>6. Empates — Bolsas Combinadas</h3>
-                <p>Si dos o más participantes terminan con los mismos puntos, se aplica el modelo de <strong>Bolsas Combinadas</strong>:</p>
+                <h3>6. Tabla General y Desempates</h3>
+                <p>La clasificación se actualiza automáticamente después de que el admin valida cada resultado.</p>
+                <p style="margin-top:.8rem;"><strong>En caso de empate en puntos — Bolsas Combinadas:</strong></p>
                 <ul>
-                    <li>🥇 <strong>Empate en 1°:</strong> Se suman 50%+30%=80%, se divide entre los empatados. El siguiente cobra 20%.</li>
+                    <li>🥇 <strong>Empate en 1°:</strong> Se suman 50%+30%=80%, se divide entre los empatados.</li>
                     <li>🥈 <strong>Empate en 2°:</strong> El 1° cobra 50%. Se suman 30%+20%=50%, se divide entre los empatados.</li>
                     <li>🥉 <strong>Empate en 3°:</strong> El 20% se divide entre los empatados.</li>
                 </ul>
@@ -113,18 +113,15 @@
                     <li>🥈 Segundo lugar: <strong>30%</strong> de la bolsa</li>
                     <li>🥉 Tercer lugar: <strong>20%</strong> de la bolsa</li>
                 </ul>
-                <p style="color:#b8c2d6; font-size:.85rem; margin-top:.8rem;">
-                    Las recargas de Goles también se suman a la bolsa bajo la misma distribución.
-                </p>
             </div>
 
             <div class="rule-card">
                 <i class="fa-solid fa-circle-exclamation"></i>
                 <h3>8. Casos Especiales</h3>
                 <ul>
-                    <li>⚠️ <strong>Partido cancelado:</strong> Se declara Nulo. Se reembolsan los Goles y nadie suma puntos.</li>
+                    <li>⚠️ <strong>Partido cancelado:</strong> Se declara Nulo. Nadie suma puntos por ese partido.</li>
                     <li>🏛️ <strong>Modificaciones del VAR:</strong> Los puntos se calculan sobre el resultado al silbatazo final. Resoluciones posteriores de la FIFA no alteran el puntaje.</li>
-                    <li>📶 <strong>Fallas técnicas individuales:</strong> Es responsabilidad del participante tener conexión estable. El admin no puede ingresar pronósticos manualmente.</li>
+                    <li>📶 <strong>Fallas técnicas:</strong> Es responsabilidad del participante tener conexión estable y registrar sus pronósticos a tiempo.</li>
                 </ul>
             </div>
 
@@ -132,9 +129,8 @@
                 <i class="fa-solid fa-ban"></i>
                 <h3>9. Restricciones</h3>
                 <ul>
-                    <li>⚽ Los Goles <strong>no son reembolsables</strong>, no transferibles y sin valor comercial.</li>
-                    <li>🔐 Aplicación privada — prohibida la redistribución masiva de códigos de invitación.</li>
-                    <li>🚫 <strong>Tolerancia cero</strong> a manipulación del backend, cuentas duplicadas o explotación de errores. Descalificación inmediata y permanente sin reembolso.</li>
+                    <li>🔐 Aplicación privada — acceso únicamente mediante código de invitación.</li>
+                    <li>🚫 <strong>Tolerancia cero</strong> a manipulación del sistema, cuentas duplicadas o explotación de errores. Descalificación inmediata y permanente sin reembolso.</li>
                     <li>✅ Las decisiones del administrador son definitivas e inapelables.</li>
                 </ul>
             </div>
@@ -143,7 +139,7 @@
 
         <div style="text-align:center; padding:2rem 0; color:#b8c2d6; font-size:.85rem;">
             Al activar tu código de invitación aceptas estos términos de forma definitiva e inapelable.<br>
-            <strong style="color:#2ecc71;">Quiniela Mundial 2026</strong>
+            <strong style="color:#2ecc71;">Quiniela Mundial 2026 - Powered by ZamTech Data Engine</strong>
         </div>
 
     </main>

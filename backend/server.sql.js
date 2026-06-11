@@ -3,44 +3,30 @@ const cors    = require("cors");
 const bcrypt  = require("bcrypt");
 const crypto  = require("crypto");
 const { z }   = require('zod');
-const { query } = require('./db');
+const { sql, poolPromise } = require("./db");
 
 const app = express();
 
+const allowedOrigins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "http://localhost",
+    "http://localhost:80",
+    "http://10.200.20.102:8080",
+    "http://10.200.20.102",
+    "http://10.200.20.102:3000",
+    process.env.FRONTEND_URL,
+    `http://${process.env.FRONTEND_HOST || "localhost"}:8080`
+].filter(Boolean);
+
 app.use(cors({
-    origin: true,
-    credentials: true
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+        else callback(new Error("No permitido por CORS"));
+    }
 }));
 
 app.use(express.json({ limit: '100kb' }));
-
-// Rate Limiter para Login y Restablecer Password (en memoria)
-const intentosLogin = new Map();
-
-function rateLimiterLogin(req, res, next) {
-    const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-    const ahora = Date.now();
-    const registro = intentosLogin.get(ip) || { conteo: 0, ultimoIntento: 0 };
-
-    // Bloquear si ha hecho más de 5 intentos fallidos en los últimos 15 minutos
-    if (registro.conteo >= 5 && (ahora - registro.ultimoIntento) < 15 * 60 * 1000) {
-        const minRestantes = Math.ceil((15 * 60 * 1000 - (ahora - registro.ultimoIntento)) / 60000);
-        return res.status(429).json({
-            ok: false,
-            message: `⛔ Demasiados intentos. Inténtalo de nuevo en ${minRestantes} minuto${minRestantes !== 1 ? 's' : ''}.`
-        });
-    }
-
-    // Reiniciar conteo si pasó más de 15 minutos desde el último intento
-    if ((ahora - registro.ultimoIntento) > 15 * 60 * 1000) {
-        registro.conteo = 0;
-    }
-
-    registro.conteo++;
-    registro.ultimoIntento = ahora;
-    intentosLogin.set(ip, registro);
-    next();
-}
 
 // ─── REGISTRO ────────────────────────────────────────────────────────────────
 app.post("/api/registro", async (req, res) => {
@@ -50,43 +36,48 @@ app.post("/api/registro", async (req, res) => {
         if (!nombre || !correo || !password || !preguntaSeguridad || !respuestaSeguridad || !codigoInvitacion)
             return res.status(400).json({ ok: false, message: "Todos los campos son obligatorios." });
 
-        // Validar código de invitación
-        const codResult = await query(
-            `SELECT id_codigo AS "IdCodigo", utilizado AS "Utilizado"
-             FROM codigos_invitacion WHERE LOWER(codigo)=LOWER($1)`,
-            [codigoInvitacion.trim()]
-        );
+        const pool = await poolPromise;
 
-        if (codResult.rows.length === 0)
+        // Validar código de invitación
+        const codResult = await pool.request()
+            .input("Codigo", sql.NVarChar(100), codigoInvitacion.trim())
+            .query(`SELECT IdCodigo, Utilizado FROM dbo.CodigosInvitacion WHERE LOWER(Codigo)=LOWER(@Codigo)`);
+
+        if (codResult.recordset.length === 0)
             return res.status(403).json({ ok: false, message: "⛔ Código de invitación inválido." });
-        if (codResult.rows[0].Utilizado)
+        if (codResult.recordset[0].Utilizado)
             return res.status(403).json({ ok: false, message: "⛔ Ese código ya fue utilizado." });
 
-        const idCodigo = codResult.rows[0].IdCodigo;
+        const idCodigo = codResult.recordset[0].IdCodigo;
 
         // Verificar correo duplicado
-        const existe = await query(
-            `SELECT id_usuario FROM usuarios WHERE correo=$1`,
-            [correo]
-        );
-        if (existe.rows.length > 0)
+        const existe = await pool.request()
+            .input("Correo", sql.NVarChar(150), correo)
+            .query(`SELECT IdUsuario FROM dbo.Usuarios WHERE Correo=@Correo`);
+        if (existe.recordset.length > 0)
             return res.status(409).json({ ok: false, message: "Ese correo ya está registrado." });
 
         const passwordHash  = await bcrypt.hash(password, 10);
         const respuestaHash = await bcrypt.hash(respuestaSeguridad.toLowerCase(), 10);
 
-        const insertResult = await query(
-            `INSERT INTO usuarios (nombre, correo, password_hash, pregunta_seguridad, respuesta_seguridad_hash)
-             VALUES ($1, $2, $3, $4, $5) RETURNING id_usuario AS "IdUsuario"`,
-            [nombre, correo, passwordHash, preguntaSeguridad, respuestaHash]
-        );
+        const insertResult = await pool.request()
+            .input("Nombre",                 sql.NVarChar(100), nombre)
+            .input("Correo",                 sql.NVarChar(150), correo)
+            .input("PasswordHash",           sql.NVarChar(255), passwordHash)
+            .input("PreguntaSeguridad",      sql.NVarChar(255), preguntaSeguridad)
+            .input("RespuestaSeguridadHash", sql.NVarChar(255), respuestaHash)
+            .query(`
+                INSERT INTO dbo.Usuarios (Nombre,Correo,PasswordHash,PreguntaSeguridad,RespuestaSeguridadHash)
+                OUTPUT INSERTED.IdUsuario
+                VALUES (@Nombre,@Correo,@PasswordHash,@PreguntaSeguridad,@RespuestaSeguridadHash)
+            `);
 
-        const nuevoIdUsuario = insertResult.rows[0].IdUsuario;
+        const nuevoIdUsuario = insertResult.recordset[0].IdUsuario;
 
-        await query(
-            `UPDATE codigos_invitacion SET utilizado=TRUE, fecha_uso=NOW(), id_usuario=$1 WHERE id_codigo=$2`,
-            [nuevoIdUsuario, idCodigo]
-        );
+        await pool.request()
+            .input("IdCodigo",  sql.Int, idCodigo)
+            .input("IdUsuario", sql.Int, nuevoIdUsuario)
+            .query(`UPDATE dbo.CodigosInvitacion SET Utilizado=1, FechaUso=GETDATE(), IdUsuario=@IdUsuario WHERE IdCodigo=@IdCodigo`);
 
         res.json({ ok: true, message: "¡Usuario registrado correctamente!" });
 
@@ -97,33 +88,30 @@ app.post("/api/registro", async (req, res) => {
 });
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-app.post("/api/login", rateLimiterLogin, async (req, res) => {
+app.post("/api/login", async (req, res) => {
     try {
         const { correo, password } = req.body;
+        const pool = await poolPromise;
 
-        const result = await query(
-            `SELECT id_usuario AS "IdUsuario", nombre AS "Nombre", correo AS "Correo",
-                    password_hash AS "PasswordHash", foto_url AS "FotoUrl"
-             FROM usuarios WHERE correo=$1 AND activo=TRUE`,
-            [correo]
-        );
+        const result = await pool.request()
+            .input("Correo", sql.NVarChar(150), correo)
+            .query(`SELECT IdUsuario, Nombre, Correo, PasswordHash, FotoUrl FROM dbo.Usuarios WHERE Correo=@Correo AND Activo=1`);
 
-        if (result.rows.length === 0)
+        if (result.recordset.length === 0)
             return res.status(401).json({ ok: false, message: "Correo o contraseña incorrectos" });
 
-        const usuario = result.rows[0];
+        const usuario = result.recordset[0];
         const passwordCorrecta = await bcrypt.compare(password, usuario.PasswordHash);
         if (!passwordCorrecta)
             return res.status(401).json({ ok: false, message: "Correo o contraseña incorrectos" });
 
-        const secret     = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
-        const token      = crypto.createHmac('sha256', secret).update(String(usuario.IdUsuario)).digest('hex');
+        const crypto = require('crypto');
+        const secret = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
+        const token  = crypto.createHmac('sha256', secret).update(String(usuario.IdUsuario)).digest('hex');
+
         const adminToken = usuario.IdUsuario === 1
             ? crypto.createHmac('sha256', secret).update('1').digest('hex')
             : null;
-
-        const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        intentosLogin.delete(ip);
 
         res.json({
             ok: true,
@@ -179,12 +167,13 @@ function validarTokenUsuario(req, res, next) {
 app.post("/api/actualizar-perfil", validarTokenUsuario, async (req, res) => {
     try {
         const { idUsuario, nuevoNombre, nuevaFotoUrl } = perfilSchema.parse(req.body);
+        const pool = await poolPromise;
 
-        const nombreExiste = await query(
-            `SELECT id_usuario FROM usuarios WHERE nombre=$1 AND id_usuario<>$2`,
-            [nuevoNombre, idUsuario]
-        );
-        if (nombreExiste.rows.length > 0)
+        const nombreExiste = await pool.request()
+            .input("Nombre",    sql.NVarChar(100), nuevoNombre)
+            .input("IdUsuario", sql.Int,           idUsuario)
+            .query(`SELECT IdUsuario FROM dbo.Usuarios WHERE Nombre=@Nombre AND IdUsuario<>@IdUsuario`);
+        if (nombreExiste.recordset.length > 0)
             return res.status(409).json({ ok: false, message: "Ese nombre ya está en uso." });
 
         const reservados = ["admin","administrador","administrator","administracion","administración","moderador","moderator","root","superadmin","system","sistema"];
@@ -192,10 +181,11 @@ app.post("/api/actualizar-perfil", validarTokenUsuario, async (req, res) => {
         if (reservados.map(normalizar).includes(normalizar(nuevoNombre)))
             return res.status(403).json({ ok: false, message: "⛔ Ese nombre está reservado." });
 
-        await query(
-            `UPDATE usuarios SET nombre=$1, foto_url=$2 WHERE id_usuario=$3`,
-            [nuevoNombre, nuevaFotoUrl || null, idUsuario]
-        );
+        await pool.request()
+            .input("IdUsuario", sql.Int,           idUsuario)
+            .input("Nombre",    sql.NVarChar(100), nuevoNombre)
+            .input("FotoUrl",   sql.NVarChar(500), nuevaFotoUrl || null)
+            .query(`UPDATE dbo.Usuarios SET Nombre=@Nombre, FotoUrl=@FotoUrl WHERE IdUsuario=@IdUsuario`);
 
         return res.json({ ok: true, message: "¡Perfil actualizado con éxito!" });
 
@@ -206,31 +196,27 @@ app.post("/api/actualizar-perfil", validarTokenUsuario, async (req, res) => {
 });
 
 // ─── RESTABLECER PASSWORD ─────────────────────────────────────────────────────
-app.post("/api/restablecer-password", rateLimiterLogin, async (req, res) => {
+app.post("/api/restablecer-password", async (req, res) => {
     try {
         const { correo, respuestaSeguridad, nuevaPassword } = restablecerSchema.parse(req.body);
+        const pool = await poolPromise;
 
-        const result = await query(
-            `SELECT id_usuario AS "IdUsuario", respuesta_seguridad_hash AS "RespuestaSeguridadHash"
-             FROM usuarios WHERE correo=$1 AND activo=TRUE`,
-            [correo]
-        );
-        if (result.rows.length === 0)
+        const result = await pool.request()
+            .input("Correo", sql.NVarChar(150), correo)
+            .query(`SELECT IdUsuario, RespuestaSeguridadHash FROM dbo.Usuarios WHERE Correo=@Correo AND Activo=1`);
+        if (result.recordset.length === 0)
             return res.status(404).json({ ok: false, message: "No se encontró ninguna cuenta con ese correo." });
 
-        const usuario = result.rows[0];
+        const usuario = result.recordset[0];
         const respuestaCorrecta = await bcrypt.compare(respuestaSeguridad.toLowerCase(), usuario.RespuestaSeguridadHash);
         if (!respuestaCorrecta)
             return res.status(401).json({ ok: false, message: "⛔ Respuesta de seguridad incorrecta." });
 
         const nuevaPasswordHash = await bcrypt.hash(nuevaPassword, 10);
-        await query(
-            `UPDATE usuarios SET password_hash=$1 WHERE id_usuario=$2`,
-            [nuevaPasswordHash, usuario.IdUsuario]
-        );
-
-        const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        intentosLogin.delete(ip);
+        await pool.request()
+            .input("IdUsuario",    sql.Int,          usuario.IdUsuario)
+            .input("PasswordHash", sql.NVarChar(255), nuevaPasswordHash)
+            .query(`UPDATE dbo.Usuarios SET PasswordHash=@PasswordHash WHERE IdUsuario=@IdUsuario`);
 
         return res.json({ ok: true, message: "¡Contraseña actualizada con éxito!" });
 

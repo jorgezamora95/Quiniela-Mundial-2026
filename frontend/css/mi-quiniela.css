@@ -1,4 +1,3 @@
-
 body{
     background-color: #05101a; 
     font-family: sans-serif;
@@ -950,5 +949,204 @@ body{
 
     .campeon-vs{
         padding-bottom: .5rem;
+    }
+}
+/* ─── TABS DE GRUPOS ──────────────────────────────────────────────────────── */
+.tabs-grupos-wrapper {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    padding-bottom: .5rem;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+.tab-grupo {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.05);
+    color: #b8c2d6;
+    font-weight: bold;
+    font-size: .95rem;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.tab-grupo:hover {
+    border-color: rgba(46,204,113,.4);
+    color: #2ecc71;
+    background: rgba(46,204,113,.08);
+}
+
+.tab-grupo--activo {
+    background: rgba(46,204,113,.2);
+    border-color: #2ecc71;
+    color: #2ecc71;
+    box-shadow: 0 0 12px rgba(46,204,113,.2);
+}
+
+/* ─── TABLA DE GRUPO ──────────────────────────────────────────────────────── */
+.tabla-grupo-wrapper {
+    background: rgba(7,17,31,.6);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.tabla-grupo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+}
+
+.tabla-grupo-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 1px;
+}
+
+.badge-pts-quiniela {
+    background: rgba(241,196,15,.15);
+    border: 1px solid rgba(241,196,15,.3);
+    color: #f1c40f;
+    padding: .3rem .8rem;
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: bold;
+}
+
+.tabla-grupo-head {
+    display: grid;
+    grid-template-columns: 40px 2fr repeat(7, 40px) 50px;
+    padding: .6rem 1.5rem;
+    background: rgba(255,255,255,.04);
+    color: #b8c2d6;
+    font-size: .75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+
+.tabla-grupo-row {
+    display: grid;
+    grid-template-columns: 40px 2fr repeat(7, 40px) 50px;
+    padding: .8rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    align-items: center;
+    transition: background .15s;
+}
+
+.tabla-grupo-row:hover { background: rgba(255,255,255,.03); }
+.tabla-grupo-row:last-of-type { border-bottom: none; }
+
+.tabla-grupo-row.clasifica {
+    border-left: 3px solid #2ecc71;
+    padding-left: calc(1.5rem - 3px);
+}
+
+.tg-pos {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-weight: bold;
+    color: #b8c2d6;
+}
+
+.dot-clasifica {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2ecc71;
+    flex-shrink: 0;
+}
+
+.tg-equipo {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-weight: 500;
+}
+
+.logo-equipo {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.tg-stat {
+    text-align: center;
+    color: #b8c2d6;
+    font-size: .9rem;
+}
+
+.tg-pts {
+    text-align: center;
+    font-size: 1.1rem;
+    color: white;
+}
+
+.dif-pos { color: #2ecc71; }
+.dif-neg { color: #e74c3c; }
+
+.tabla-grupo-legend {
+    padding: .6rem 1.5rem;
+    font-size: .75rem;
+    color: #b8c2d6;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    border-top: 1px solid rgba(255,255,255,.05);
+}
+
+/* ─── TABS VISTA (Grupos / Pronósticos) ───────────────────────────────────── */
+.vista-tabs {
+    display: flex;
+    gap: .5rem;
+    margin-bottom: 1.5rem;
+}
+
+.vista-tab {
+    padding: .6rem 1.4rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.05);
+    color: #b8c2d6;
+    font-weight: bold;
+    cursor: pointer;
+    transition: .2s ease;
+}
+
+.vista-tab:hover {
+    border-color: rgba(46,204,113,.4);
+    color: #2ecc71;
+}
+
+.vista-tab--activo {
+    background: rgba(46,204,113,.15);
+    border-color: #2ecc71;
+    color: #2ecc71;
+}
+
+@media(max-width: 760px) {
+    .tabla-grupo-head,
+    .tabla-grupo-row {
+        grid-template-columns: 30px 2fr repeat(4, 32px) 40px;
+    }
+    /* Ocultar GF, GC, Dif en móvil */
+    .tabla-grupo-head > div:nth-child(7),
+    .tabla-grupo-head > div:nth-child(8),
+    .tabla-grupo-head > div:nth-child(9),
+    .tabla-grupo-row > div:nth-child(7),
+    .tabla-grupo-row > div:nth-child(8),
+    .tabla-grupo-row > div:nth-child(9) {
+        display: none;
     }
 }

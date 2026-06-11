@@ -4,6 +4,16 @@
 // <script src="./js/ganadores.js"></script>
 // =============================================
 
+function escapeHTML(str) {
+    if (!str) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 async function verificarGanadores() {
     try {
         const res  = await fetch(`${API_URL}/api/estado-quiniela`);
@@ -87,11 +97,11 @@ function mostrarAnimacionGanadores(ganadores) {
         <div style="display:flex; justify-content:space-between; align-items:center; padding:.8rem 1rem; background:rgba(255,255,255,.04); border-radius:12px; margin-bottom:.5rem;">
             <div style="display:flex; align-items:center; gap:.8rem;">
                 ${g.FotoUrl
-                    ? `<img src="${g.FotoUrl}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid rgba(241,196,15,.4);" onerror="this.src='./img/user-icon.png'">`
+                    ? `<img src="${escapeHTML(g.FotoUrl)}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;border:2px solid rgba(241,196,15,.4);" onerror="this.src='./img/user-icon.png'">`
                     : `<div style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:1.2rem;">${medallas[g.Posicion]}</div>`
                 }
                 <div style="text-align:left;">
-                    <strong style="color:white;">${g.Nombre}</strong>
+                    <strong style="color:white;">${escapeHTML(g.Nombre)}</strong>
                     <small style="display:block;color:#b8c2d6;">${g.Puntos} puntos</small>
                 </div>
             </div>

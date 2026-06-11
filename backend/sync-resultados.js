@@ -1,9 +1,9 @@
 // sync-resultados.js
-// Cron job que jala resultados de API-Sports cada 5 minutos
-// y los guarda como "pendiente de validar" en SQL Server
+// Cron job que jala resultados de API-Sports cada 15 minutos
+// y los guarda como "pendiente de validar" en PostgreSQL
 
-const cron       = require('node-cron');
-const { sql, poolPromise } = require('./db');
+const cron = require('node-cron');
+const { query } = require('./db');
 
 const API_KEY    = process.env.APISPORTS_KEY;
 const LEAGUE_ID  = 1;    // FIFA World Cup
@@ -13,6 +13,11 @@ const API_URL    = 'https://v3.football.api-sports.io';
 // ─── FUNCIÓN PRINCIPAL ────────────────────────────────────────────────────────
 async function sincronizarResultados() {
     console.log(`[${new Date().toLocaleTimeString()}] 🔄 Sincronizando resultados...`);
+
+    if (!API_KEY) {
+        console.warn('⚠️ No se ha configurado APISPORTS_KEY. Sincronización omitida.');
+        return;
+    }
 
     try {
         // 1. Jalamos partidos terminados del día de hoy
@@ -29,10 +34,8 @@ async function sincronizarResultados() {
             return;
         }
 
-        const pool = await poolPromise;
-
         for (const fixture of data.response) {
-            const { fixture: f, teams, goals, score } = fixture;
+            const { fixture: f, teams, goals } = fixture;
 
             // Solo tiempo regular (FT = Full Time, no AET ni PEN)
             if (f.status.short !== 'FT') continue;
@@ -42,44 +45,25 @@ async function sincronizarResultados() {
             const nombreLocal    = teams.home.name;
             const nombreVisitante = teams.away.name;
 
-            // Buscar partido en nuestro JSON/BD por nombre de equipos
-            const partidoLocal = await pool.request()
-                .input('Local',     sql.NVarChar(100), nombreLocal)
-                .input('Visitante', sql.NVarChar(100), nombreVisitante)
-                .query(`
-                    SELECT PartidoId 
-                    FROM dbo.ResultadosPendientes 
-                    WHERE LocalNombre = @Local AND VisitanteNombre = @Visitante
-                `).catch(() => ({ recordset: [] }));
+            // Buscar si ya existe el resultado pendiente en nuestra tabla
+            const yaExiste = await query(
+                `SELECT id_pendiente FROM resultados_pendientes
+                 WHERE local_nombre = $1 AND visitante_nombre = $2`,
+                [nombreLocal, nombreVisitante]
+            );
 
-            // Buscar el PartidoId en nuestra tabla de partidos estática
-            // (cruzamos por nombre del equipo contra el JSON)
-            const yaExiste = await pool.request()
-                .input('LocalNombre',     sql.NVarChar(100), nombreLocal)
-                .input('VisitanteNombre', sql.NVarChar(100), nombreVisitante)
-                .query(`
-                    SELECT IdPendiente FROM dbo.ResultadosPendientes
-                    WHERE LocalNombre = @LocalNombre AND VisitanteNombre = @VisitanteNombre
-                `).catch(() => ({ recordset: [] }));
-
-            if (yaExiste.recordset.length > 0) {
+            if (yaExiste.rows.length > 0) {
                 console.log(`Ya existe pendiente: ${nombreLocal} vs ${nombreVisitante}`);
                 continue;
             }
 
             // Insertar como pendiente de validar
-            await pool.request()
-                .input('FixtureId',       sql.Int,          f.id)
-                .input('LocalNombre',     sql.NVarChar(100), nombreLocal)
-                .input('VisitanteNombre', sql.NVarChar(100), nombreVisitante)
-                .input('GolesLocal',      sql.Int,          golesLocal)
-                .input('GolesVisitante',  sql.Int,          golesVisitante)
-                .input('FechaPartido',    sql.DateTime,     new Date(f.date))
-                .query(`
-                    INSERT INTO dbo.ResultadosPendientes 
-                    (FixtureId, LocalNombre, VisitanteNombre, GolesLocal, GolesVisitante, FechaPartido, Validado)
-                    VALUES (@FixtureId, @LocalNombre, @VisitanteNombre, @GolesLocal, @GolesVisitante, @FechaPartido, 0)
-                `);
+            await query(
+                `INSERT INTO resultados_pendientes 
+                 (fixture_id, local_nombre, visitante_nombre, goles_local, goles_visitante, fecha_partido, validado)
+                 VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
+                [f.id, nombreLocal, nombreVisitante, golesLocal, golesVisitante, new Date(f.date)]
+            );
 
             console.log(`✅ Pendiente agregado: ${nombreLocal} ${golesLocal}-${golesVisitante} ${nombreVisitante}`);
         }
@@ -89,13 +73,16 @@ async function sincronizarResultados() {
     }
 }
 
-// ─── CRON JOB: cada 5 minutos ─────────────────────────────────────────────────
-// Solo entre las 12:00 y las 23:59 hora México
-cron.schedule('*/15 12-23 * * *', sincronizarResultados); // cada 15 min solo en horario de partidos
+// ─── CRON JOB: cada 15 minutos solo en horario de partidos ─────────────────────
+// Solo se activa si la API Key está presente
+if (API_KEY) {
+    cron.schedule('*/15 12-23 * * *', sincronizarResultados); 
+    console.log('🕐 Cron job de sincronización de resultados iniciado (cada 15 minutos entre las 12:00 y las 23:59).');
+} else {
+    console.log('🕐 Cron job de resultados no iniciado (Falta APISPORTS_KEY).');
+}
 
-// También ejecutar al arrancar
+// Ejecutar al arrancar
 sincronizarResultados();
-
-console.log('🕐 Cron job de sincronización iniciado — cada 5 minutos');
 
 module.exports = { sincronizarResultados };

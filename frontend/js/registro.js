@@ -44,7 +44,7 @@ btnRegistro.addEventListener("click", async function () {
     try {
         btnRegistro.disabled = true;
 
-        const response = await fetch(`${API_BASE}/api/registro`, {
+        const response = await fetch(`${API_URL}/api/registro`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -72,5 +72,17 @@ btnRegistro.addEventListener("click", async function () {
         mensaje.className = "mensaje error";
     } finally {
         btnRegistro.disabled = false;
+    }
+});
+
+// Auto-fill invitation code from URL query parameters
+document.addEventListener("DOMContentLoaded", () => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (code) {
+        const inputCodigo = document.querySelector("#codigoInvitacion");
+        if (inputCodigo) {
+            inputCodigo.value = code;
+        }
     }
 });

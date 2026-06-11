@@ -36,7 +36,7 @@ async function cargarTablaPosiciones() {
             const elMiPosicion = document.getElementById("miPosicion");
             const elMisPuntos = document.getElementById("misPuntos");
             const elMisAciertos = document.getElementById("misAciertos");
-            if (elMiPosicion) elMiPosicion.textContent = `${miIndex + 1}° lugar`;
+            if (elMiPosicion) elMiPosicion.textContent = `${misDatos.PosicionReal}° lugar`;
             if (elMisPuntos) elMisPuntos.textContent = `${misDatos.Puntos} pts`;
             if (elMisAciertos) elMisAciertos.textContent = misDatos.Aciertos;
         }
@@ -67,7 +67,7 @@ function renderizarListaRanking(listaUsuarios) {
     const miId = parseInt(localStorage.getItem("idUsuario"));
 
     listaUsuarios.forEach((usuario) => {
-        const posicionReal = rankingDataGlobal.findIndex(u => parseInt(u.IdUsuario) === parseInt(usuario.IdUsuario)) + 1;
+        const posicionReal = usuario.PosicionReal;
 
         const row = document.createElement("div");
         row.className = "tabla-row-item";
