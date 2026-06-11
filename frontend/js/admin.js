@@ -112,9 +112,8 @@ function renderizarPartidosAdmin(lista) {
         btn.addEventListener("click", () => enviarResultadoOficial(partido.id, iL.value, iV.value, btn, partido.local, partido.visitante));
 
         if (reg) {
-            iL.readOnly = iV.readOnly = true;
             row.classList.add("partido-registrado-admin");
-            btn.disabled = true; btn.textContent = "Guardado 🟢";
+            btn.textContent = "Actualizar 🔄";
         }
         row.append(matchDiv, predDiv, dateDiv, btn);
         container.appendChild(row);
@@ -133,9 +132,9 @@ async function enviarResultadoOficial(partidoId, gL, gV, btn, local, visitante) 
         msg.textContent = data.message;
         msg.style.color = data.ok ? "#2ecc71" : "#e74c3c";
         if (data.ok && btn) {
-            btn.textContent = "Guardado 🟢"; btn.disabled = true;
+            btn.textContent = "Actualizar 🔄";
             const fila = btn.closest(".quiniela-row");
-            if (fila) { fila.classList.add("partido-registrado-admin"); fila.querySelectorAll(".prediction input").forEach(i=>i.readOnly=true); }
+            if (fila) { fila.classList.add("partido-registrado-admin"); }
             const idx = partidosAdminGlobal.findIndex(p=>p.id===partidoId);
             if (idx!==-1) { partidosAdminGlobal[idx].resultadoLocal=gL; partidosAdminGlobal[idx].resultadoVisitante=gV; }
             // Actualizar bolsa después de registrar
