@@ -405,8 +405,8 @@ async function inicializarPronosticoCampeon() {
     btnCampeon.addEventListener("click", async () => {
         const id         = parseInt(localStorage.getItem("idUsuario"));
         const seleccion  = document.getElementById("selectCampeon")?.value;
-        const gl         = parseInt(document.getElementById("inputCampeonGL")?.value) ?? 0;
-        const gv         = parseInt(document.getElementById("inputCampeonGV")?.value) ?? 0;
+        const gl         = parseInt(document.getElementById("inputCampeonGL")?.value) || 0;
+        const gv         = parseInt(document.getElementById("inputCampeonGV")?.value) || 0;
         if (!seleccion) { mostrarMensaje("⚠️ Selecciona la selección campeona.", "error"); return; }
         try {
             btnCampeon.disabled = true;
