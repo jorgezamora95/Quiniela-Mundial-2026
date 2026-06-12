@@ -143,88 +143,108 @@ async function enviarPronosticosAntesDePartido() {
                         ORDER BY u.nombre ASC
                     `, [match.id]);
 
-                    // Generar CSV
-                    const escapeCSV = (str) => {
-                        if (str === null || str === undefined) return '';
-                        return `"${String(str).replace(/"/g, '""')}"`;
-                    };
-
-                    let csvContent = "\uFEFFUsuario,Correo,Partido #,Partido,Pronóstico Local,Pronóstico Visitante,Modificaciones\n";
-                    for (const row of result.rows) {
-                        const matchName = `${match.local} vs ${match.visitante}`;
-                        csvContent += `${escapeCSV(row.Usuario)},${escapeCSV(row.Correo)},${row.PartidoId},${escapeCSV(matchName)},${row.PronosticoLocal},${row.PronosticoVisitante},${row.Modificaciones}\n`;
-                    }
-
-                    // Generar HTML
-                    const html = `
-                    <div style="font-family:sans-serif;max-width:700px;margin:0 auto;background:#05101a;color:white;border-radius:16px;overflow:hidden;border:1px solid #1f2d3d;">
-                        <div style="background:linear-gradient(135deg,#16883f,#0b5229);padding:1.5rem;text-align:center;">
-                            <h1 style="margin:0;font-size:1.8rem;color:white;">⚽ Pronósticos del Partido</h1>
-                            <p style="margin:5px 0 0;color:#e8f5e9;font-size:1rem;">${match.local} vs ${match.visitante}</p>
-                        </div>
-                        <div style="padding:1.5rem;">
-                            <p>Hola Admin,</p>
-                            <p>A continuación se listan los pronósticos de los participantes para el partido <strong>${match.local} vs ${match.visitante}</strong> (#${match.id}), programado para el <strong>${match.fecha} a las ${match.hora}</strong>.</p>
-                            
-                            <div style="overflow-x:auto;margin:1.5rem 0;">
-                                <table style="width:100%;border-collapse:collapse;color:white;font-size:0.9rem;">
-                                    <thead>
-                                        <tr style="background:rgba(255,255,255,.08);border-bottom:2px solid rgba(255,255,255,.15);text-align:left;">
-                                            <th style="padding:10px;">Usuario</th>
-                                            <th style="padding:10px;">Correo</th>
-                                            <th style="padding:10px;text-align:center;">Pronóstico</th>
-                                            <th style="padding:10px;text-align:center;">Cambios</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${result.rows.length === 0 ? `
-                                            <tr>
-                                                <td colspan="4" style="padding:20px;text-align:center;color:#b8c2d6;">No hay pronósticos registrados para este partido.</td>
-                                            </tr>
-                                        ` : result.rows.map((row, index) => `
-                                            <tr style="background:${index % 2 === 0 ? 'rgba(255,255,255,.02)' : 'rgba(255,255,255,.05)'};border-bottom:1px solid rgba(255,255,255,.05);">
-                                                <td style="padding:10px;">${escapeHTML(row.Usuario)}</td>
-                                                <td style="padding:10px;color:#b8c2d6;">${escapeHTML(row.Correo)}</td>
-                                                <td style="padding:10px;text-align:center;font-weight:bold;color:#2ecc71;">${row.PronosticoLocal} - ${row.PronosticoVisitante}</td>
-                                                <td style="padding:10px;text-align:center;color:#f1c40f;">${row.Modificaciones}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>
-                            
-                            <p style="font-size:0.85rem;color:#b8c2d6;border-top:1px solid rgba(255,255,255,.1);padding-top:1rem;">
-                                Se adjunta el reporte en formato CSV para su uso en Excel (codificación UTF-8 para acentos y caracteres especiales).
-                            </p>
-                        </div>
-                        <div style="background:rgba(0,0,0,.3);padding:1rem;text-align:center;">
-                            <p style="margin:0;color:#b8c2d6;font-size:.8rem;">Quiniela Mundial 2026 — torreslab</p>
-                        </div>
-                    </div>`;
-
-                    const destinatario = 'ikrabel0@gmail.com';
-                    await transporter.sendMail({
-                        from:    process.env.EMAIL_FROM,
-                        to:      destinatario,
-                        subject: `📋 Pronósticos: ${match.local} vs ${match.visitante} (#${match.id})`,
-                        html,
-                        attachments: [
-                            {
-                                filename: `Pronosticos_Partido_${match.id}_${match.local}_vs_${match.visitante}.csv`,
-                                content: csvContent,
-                                contentType: 'text/csv; charset=utf-8'
-                            }
-                        ]
-                    });
-
-                    // Registrar Log de Actividad (id_usuario = 2 para ikrabel0@gmail.com)
-                    await query(
-                        `INSERT INTO logs_actividad (id_usuario, accion, partido_id, detalle, exito)
-                         VALUES ($1, $2, $3, $4, $5)`,
-                        [2, 'correo_pronosticos_enviado', match.id, `Pronósticos de ${match.local} vs ${match.visitante} enviados a ${destinatario}`, true]
+                    // Obtener correos de administradores (ID 2 y 3)
+                    const adminsResult = await query(
+                        `SELECT id_usuario AS "id_usuario", correo AS "correo" 
+                         FROM usuarios WHERE id_usuario IN (2, 3) AND activo = TRUE`
                     );
+                    const destinatarios = adminsResult.rows.map(r => r.correo).filter(c => c && c.trim() !== '');
 
-                    console.log(`✅ Pronósticos del partido #${match.id} enviados con éxito.`);
+                    if (destinatarios.length > 0) {
+                        // Generar CSV
+                        const escapeCSV = (str) => {
+                            if (str === null || str === undefined) return '';
+                            return `"${String(str).replace(/"/g, '""')}"`;
+                        };
+
+                        let csvContent = "\uFEFFUsuario,Correo,Partido #,Partido,Pronóstico Local,Pronóstico Visitante,Modificaciones\n";
+                        for (const row of result.rows) {
+                            const matchName = `${match.local} vs ${match.visitante}`;
+                            csvContent += `${escapeCSV(row.Usuario)},${escapeCSV(row.Correo)},${row.PartidoId},${escapeCSV(matchName)},${row.PronosticoLocal},${row.PronosticoVisitante},${row.Modificaciones}\n`;
+                        }
+
+                        // Generar HTML
+                        const html = `
+                        <div style="font-family:sans-serif;max-width:700px;margin:0 auto;background:#05101a;color:white;border-radius:16px;overflow:hidden;border:1px solid #1f2d3d;">
+                            <div style="background:linear-gradient(135deg,#16883f,#0b5229);padding:1.5rem;text-align:center;">
+                                <h1 style="margin:0;font-size:1.8rem;color:white;">⚽ Pronósticos del Partido</h1>
+                                <p style="margin:5px 0 0;color:#e8f5e9;font-size:1rem;">${match.local} vs ${match.visitante}</p>
+                            </div>
+                            <div style="padding:1.5rem;">
+                                <p>Hola Admin,</p>
+                                <p>A continuación se listan los pronósticos de los participantes para el partido <strong>${match.local} vs ${match.visitante}</strong> (#${match.id}), programado para el <strong>${match.fecha} a las ${match.hora}</strong>.</p>
+                                
+                                <div style="overflow-x:auto;margin:1.5rem 0;">
+                                    <table style="width:100%;border-collapse:collapse;color:white;font-size:0.9rem;">
+                                        <thead>
+                                            <tr style="background:rgba(255,255,255,.08);border-bottom:2px solid rgba(255,255,255,.15);text-align:left;">
+                                                <th style="padding:10px;">Usuario</th>
+                                                <th style="padding:10px;">Correo</th>
+                                                <th style="padding:10px;text-align:center;">Pronóstico</th>
+                                                <th style="padding:10px;text-align:center;">Cambios</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${result.rows.length === 0 ? `
+                                                <tr>
+                                                    <td colspan="4" style="padding:20px;text-align:center;color:#b8c2d6;">No hay pronósticos registrados para este partido.</td>
+                                                </tr>
+                                            ` : result.rows.map((row, index) => `
+                                                <tr style="background:${index % 2 === 0 ? 'rgba(255,255,255,.02)' : 'rgba(255,255,255,.05)'};border-bottom:1px solid rgba(255,255,255,.05);">
+                                                    <td style="padding:10px;">${escapeHTML(row.Usuario)}</td>
+                                                    <td style="padding:10px;color:#b8c2d6;">${escapeHTML(row.Correo)}</td>
+                                                    <td style="padding:10px;text-align:center;font-weight:bold;color:#2ecc71;">${row.PronosticoLocal} - ${row.PronosticoVisitante}</td>
+                                                    <td style="padding:10px;text-align:center;color:#f1c40f;">${row.Modificaciones}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <p style="font-size:0.85rem;color:#b8c2d6;border-top:1px solid rgba(255,255,255,.1);padding-top:1rem;">
+                                    Se adjunta el reporte en formato CSV para su uso en Excel (codificación UTF-8 para acentos y caracteres especiales).
+                                </p>
+                            </div>
+                            <div style="background:rgba(0,0,0,.3);padding:1rem;text-align:center;">
+                                <p style="margin:0;color:#b8c2d6;font-size:.8rem;">Quiniela Mundial 2026 — torreslab</p>
+                            </div>
+                        </div>`;
+
+                        await transporter.sendMail({
+                            from:    process.env.EMAIL_FROM,
+                            to:      destinatarios.join(', '),
+                            subject: `📋 Pronósticos: ${match.local} vs ${match.visitante} (#${match.id})`,
+                            html,
+                            attachments: [
+                                {
+                                    filename: `Pronosticos_Partido_${match.id}_${match.local}_vs_${match.visitante}.csv`,
+                                    content: csvContent,
+                                    contentType: 'text/csv; charset=utf-8'
+                                }
+                            ]
+                        });
+
+                        // Registrar Log de Actividad para cada administrador destinatario
+                        for (const admin of adminsResult.rows) {
+                            if (admin.correo) {
+                                await query(
+                                    `INSERT INTO logs_actividad (id_usuario, accion, partido_id, detalle, exito)
+                                     VALUES ($1, $2, $3, $4, $5)`,
+                                    [admin.id_usuario, 'correo_pronosticos_enviado', match.id, `Pronósticos de ${match.local} vs ${match.visitante} enviados a ${admin.correo}`, true]
+                                );
+                            }
+                        }
+
+                        console.log(`✅ Pronósticos del partido #${match.id} enviados con éxito a ${destinatarios.join(', ')}.`);
+                    } else {
+                        // Si no hay destinatarios, igual registramos una entrada para evitar reintento infinito
+                        await query(
+                            `INSERT INTO logs_actividad (id_usuario, accion, partido_id, detalle, exito)
+                             VALUES ($1, $2, $3, $4, $5)`,
+                            [2, 'correo_pronosticos_enviado', match.id, `No se encontraron correos para administradores 2 y 3. Envío omitido.`, true]
+                        );
+                        console.log(`⚠️ No se encontraron correos para administradores 2 y 3. Envío omitido para partido #${match.id}.`);
+                    }
                 }
             }
         }
