@@ -267,7 +267,19 @@ cron.schedule('*/5 * * * *', enviarPronosticosAntesDePartido);
 console.log('🕐 Cron job de envío de pronósticos antes de partido iniciado (cada 5 minutos).');
 
 // Ejecutar al arrancar
-sincronizarResultados();
-enviarPronosticosAntesDePartido();
+(async () => {
+    try {
+        console.log('🔄 Eliminando logs previos del partido #2 para forzar el reenvío solicitado...');
+        await query(
+            `DELETE FROM logs_actividad 
+             WHERE accion = 'correo_pronosticos_enviado' AND partido_id = $1`,
+            [2]
+        );
+    } catch (e) {
+        console.error('Error al limpiar logs previos:', e.message);
+    }
+    sincronizarResultados();
+    enviarPronosticosAntesDePartido();
+})();
 
 module.exports = { sincronizarResultados, enviarPronosticosAntesDePartido };
