@@ -344,6 +344,64 @@ async function inicializarPanelPendientes() {
     } catch(e) { console.error(e); }
 }
 
+const traductoresEquipos = {
+    "mexico": "méxico",
+    "south africa": "sudáfrica",
+    "south korea": "corea del sur",
+    "korea republic": "corea del sur",
+    "korea, south": "corea del sur",
+    "czechia": "chequia",
+    "czech republic": "chequia",
+    "canada": "canadá",
+    "bosnia and herzegovina": "bosnia y herzegovina",
+    "bosnia-herzegovina": "bosnia y herzegovina",
+    "usa": "estados unidos",
+    "united states": "estados unidos",
+    "qatar": "catar",
+    "switzerland": "suiza",
+    "brazil": "brasil",
+    "morocco": "marruecos",
+    "haiti": "haití",
+    "scotland": "escocia",
+    "turkey": "turquía",
+    "türkiye": "turquía",
+    "germany": "alemania",
+    "curacao": "curazao",
+    "curaçao": "curazao",
+    "netherlands": "países bajos",
+    "japan": "japón",
+    "ivory coast": "costa de marfil",
+    "côte d'ivoire": "costa de marfil",
+    "sweden": "suecia",
+    "tunisia": "túnez",
+    "spain": "españa",
+    "cape verde": "cabo verde",
+    "cabo verde": "cabo verde",
+    "belgium": "bélgica",
+    "egypt": "egipto",
+    "saudi arabia": "arabia saudita",
+    "iran": "irán",
+    "new zealand": "nueva zelanda",
+    "france": "francia",
+    "iraq": "irak",
+    "norway": "noruega",
+    "algeria": "argelia",
+    "jordan": "jordania",
+    "dr congo": "rd congo",
+    "congo dr": "rd congo",
+    "democratic republic of the congo": "rd congo",
+    "england": "inglaterra",
+    "croatia": "croacia",
+    "panama": "panamá",
+    "uzbekistan": "uzbekistán"
+};
+
+function traducirNombre(nombre) {
+    if (!nombre) return "";
+    const n = nombre.toLowerCase().trim();
+    return traductoresEquipos[n] || n;
+}
+
 function renderizarPendientes(pendientes) {
     const container = document.getElementById("panelPendientesAdmin");
     if (!container) return;
@@ -367,7 +425,9 @@ function renderizarPendientes(pendientes) {
                 const opt = document.createElement("option");
                 opt.value = part.id;
                 opt.textContent = `#${part.id} ${part.local} vs ${part.visitante}`;
-                if (part.local.toLowerCase().includes(p.LocalNombre.toLowerCase().split(' ')[0])) opt.selected = true;
+                
+                const localTraducido = traducirNombre(p.LocalNombre);
+                if (part.local.toLowerCase().includes(localTraducido.split(' ')[0])) opt.selected = true;
                 selectPartido.appendChild(opt);
             });
             const btnValidar = document.createElement("button");

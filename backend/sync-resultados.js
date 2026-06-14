@@ -8,45 +8,52 @@ const path       = require('path');
 const fs         = require('fs');
 const nodemailer = require('nodemailer');
 
-const API_KEY    = process.env.APISPORTS_KEY;
-const LEAGUE_ID  = 1;    // FIFA World Cup
-const SEASON     = 2026;
-const API_URL    = 'https://v3.football.api-sports.io';
+const API_KEY = process.env.FOOTBALL_DATA_API_KEY || process.env.APISPORTS_KEY;
+const API_URL = 'https://api.football-data.org/v4';
 
 // ─── FUNCIÓN PRINCIPAL ────────────────────────────────────────────────────────
 async function sincronizarResultados() {
-    console.log(`[${new Date().toLocaleTimeString()}] 🔄 Sincronizando resultados...`);
+    console.log(`[${new Date().toLocaleTimeString()}] 🔄 Sincronizando resultados desde Football-Data.org...`);
 
     if (!API_KEY) {
-        console.warn('⚠️ No se ha configurado APISPORTS_KEY. Sincronización omitida.');
+        console.warn('⚠️ No se ha configurado la API Key (FOOTBALL_DATA_API_KEY o APISPORTS_KEY). Sincronización omitida.');
         return;
     }
 
     try {
-        // 1. Jalamos partidos terminados del día de hoy
-        const hoy = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        // Obtenemos partidos de ayer y hoy para evitar perder resultados por diferencias horarias (timezones)
+        const dateNow = new Date();
+        const dateYesterday = new Date();
+        dateYesterday.setDate(dateNow.getDate() - 1);
+
+        const dateFrom = dateYesterday.toISOString().split('T')[0];
+        const dateTo = dateNow.toISOString().split('T')[0];
+
         const response = await fetch(
-            `${API_URL}/fixtures?league=${LEAGUE_ID}&season=${SEASON}&date=${hoy}&status=FT`,
-            { headers: { 'x-apisports-key': API_KEY } }
+            `${API_URL}/competitions/WC/matches?dateFrom=${dateFrom}&dateTo=${dateTo}`,
+            { headers: { 'X-Auth-Token': API_KEY } }
         );
 
         const data = await response.json();
 
-        if (!data.response || data.response.length === 0) {
-            console.log('Sin partidos terminados hoy.');
+        if (data.errors || data.message) {
+            console.error('API Error:', data.message || data.errors);
             return;
         }
 
-        for (const fixture of data.response) {
-            const { fixture: f, teams, goals } = fixture;
+        if (!data.matches || data.matches.length === 0) {
+            console.log('Sin partidos en el rango de ayer/hoy.');
+            return;
+        }
 
-            // Solo tiempo regular (FT = Full Time, no AET ni PEN)
-            if (f.status.short !== 'FT') continue;
+        for (const match of data.matches) {
+            // Solo partidos finalizados (FINISHED)
+            if (match.status !== 'FINISHED') continue;
 
-            const golesLocal     = goals.home;
-            const golesVisitante = goals.away;
-            const nombreLocal    = teams.home.name;
-            const nombreVisitante = teams.away.name;
+            const golesLocal     = match.score.fullTime.home;
+            const golesVisitante = match.score.fullTime.away;
+            const nombreLocal    = match.homeTeam.name;
+            const nombreVisitante = match.awayTeam.name;
 
             // Buscar si ya existe el resultado pendiente en nuestra tabla
             const yaExiste = await query(
@@ -65,7 +72,18 @@ async function sincronizarResultados() {
                 `INSERT INTO resultados_pendientes 
                  (fixture_id, local_nombre, visitante_nombre, goles_local, goles_visitante, fecha_partido, validado)
                  VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
-                [f.id, nombreLocal, nombreVisitante, golesLocal, golesVisitante, new Date(f.date)]
+                [match.id, nombreLocal, nombreVisitante, golesLocal, golesVisitante, new Date(match.utcDate)]
+            );
+
+            // Registrar log de actividad
+            await query(
+                `INSERT INTO logs_actividad (accion, detalle, exito)
+                 VALUES ($1, $2, $3)`,
+                [
+                    'pendiente_sincronizado',
+                    `Marcador final sincronizado desde la API (pendiente de validar): ${nombreLocal} ${golesLocal} - ${golesVisitante} ${nombreVisitante}`,
+                    true
+                ]
             );
 
             console.log(`✅ Pendiente agregado: ${nombreLocal} ${golesLocal}-${golesVisitante} ${nombreVisitante}`);
@@ -114,9 +132,9 @@ async function enviarPronosticosAntesDePartido() {
             const fechaPartido = new Date(`${match.fecha} ${horaLimpia}:00 GMT-0600`);
             const msHasta = fechaPartido.getTime() - ahora;
 
-            // Enviar si falta menos de 15 minutos para que empiece, o si empezó hace menos de 1 hora
-            // y no hemos registrado el envío aún.
-            if (msHasta <= 15 * 60 * 1000 && msHasta >= -60 * 60 * 1000) {
+            // Enviar 5 minutos después de que empiece el partido (hasta 1 hora después)
+            // y si no hemos registrado el envío aún.
+            if (msHasta <= -5 * 60 * 1000 && msHasta >= -60 * 60 * 1000) {
                 // Verificar si ya se envió
                 const yaEnviado = await query(
                     `SELECT id_log FROM logs_actividad 
@@ -255,12 +273,12 @@ async function enviarPronosticosAntesDePartido() {
 }
 
 // ─── CRON JOBS Schedulers ──────────────────────────────────────────────────────
-// 1. Sincronización de resultados reales de API-Sports
+// 1. Sincronización de resultados reales de Football-Data
 if (API_KEY) {
-    cron.schedule('*/15 12-23 * * *', sincronizarResultados); 
-    console.log('🕐 Cron job de sincronización de resultados iniciado (cada 15 minutos entre las 12:00 y las 23:59).');
+    cron.schedule('*/5 * * * *', sincronizarResultados); 
+    console.log('🕐 Cron job de sincronización de resultados iniciado (cada 5 minutos).');
 } else {
-    console.log('🕐 Cron job de resultados no iniciado (Falta APISPORTS_KEY).');
+    console.log('🕐 Cron job de resultados no iniciado (Falta la API Key).');
 }
 
 // 2. Envío de pronósticos antes de cada partido

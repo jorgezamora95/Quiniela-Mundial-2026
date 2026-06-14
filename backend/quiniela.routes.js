@@ -958,6 +958,15 @@ router.post('/admin/validar-pendiente', async (req, res) => {
             [partidoId, idPendiente]
         );
 
+        // REGISTRAR LOG DE ACTIVIDAD
+        await registrarLogActividad({
+            idUsuario: 1, // Admin default ID
+            accion: 'marcador_final_registrado',
+            partidoId: partidoId,
+            detalle: `Se ha registrado el marcador final del partido #${partidoId}: ${local_nombre} ${goles_local} - ${goles_visitante} ${visitante_nombre}`,
+            exito: true
+        });
+
         const pros = await query(
             `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante, u.nombre, u.correo
              FROM pronosticos p INNER JOIN usuarios u ON p.id_usuario=u.id_usuario
@@ -1052,33 +1061,40 @@ router.post('/admin/sincronizar', async (req, res) => {
     }
 });
 
-// ─── STANDINGS (API-Sports) ──────────────────────────────────────────────────
+// ─── STANDINGS (Football-Data.org) ───────────────────────────────────────────
 router.get('/standings', async (req, res) => {
     try {
-        const API_KEY   = process.env.APISPORTS_KEY;
-        const LEAGUE_ID = 1, SEASON = 2026;
+        const API_KEY = process.env.FOOTBALL_DATA_API_KEY || process.env.APISPORTS_KEY;
         if (!API_KEY) return res.status(500).json({ ok: false, message: 'API Key no configurada.' });
 
         const response = await fetch(
-            `https://v3.football.api-sports.io/standings?league=${LEAGUE_ID}&season=${SEASON}`,
-            { headers: { 'x-apisports-key': API_KEY } }
+            `https://api.football-data.org/v4/competitions/WC/standings`,
+            { headers: { 'X-Auth-Token': API_KEY } }
         );
         const data = await response.json();
-        if (!data.response || data.response.length === 0) return res.json({ ok: true, grupos: {} });
+        if (data.errors || data.message || !data.standings) {
+            console.error('API Error standings:', data.message || data.errors);
+            return res.json({ ok: true, grupos: {} });
+        }
 
         const grupos = {};
-        const league = data.response[0]?.league;
-        if (!league) return res.json({ ok: true, grupos: {} });
-
-        league.standings.forEach(standing => {
-            standing.forEach(equipo => {
-                const letra = equipo.group.replace('Group ', '').trim();
-                if (!grupos[letra]) grupos[letra] = [];
+        data.standings.forEach(standing => {
+            const letra = standing.group.replace('GROUP_', '').replace('Group ', '').trim();
+            if (!grupos[letra]) grupos[letra] = [];
+            
+            standing.table.forEach(equipo => {
                 grupos[letra].push({
-                    posicion: equipo.rank, nombre: equipo.team.name, logo: equipo.team.logo,
-                    jugados: equipo.all.played, ganados: equipo.all.win, empates: equipo.all.draw,
-                    perdidos: equipo.all.lose, golesFavor: equipo.all.goals.for,
-                    golesContra: equipo.all.goals.against, diferencia: equipo.goalsDiff, puntos: equipo.points
+                    posicion: equipo.position,
+                    nombre: equipo.team.name,
+                    logo: equipo.team.crest,
+                    jugados: equipo.playedGames,
+                    ganados: equipo.won,
+                    empates: equipo.draw,
+                    perdidos: equipo.lost,
+                    golesFavor: equipo.goalsFor,
+                    golesContra: equipo.goalsAgainst,
+                    diferencia: equipo.goalDifference,
+                    puntos: equipo.points
                 });
             });
         });
