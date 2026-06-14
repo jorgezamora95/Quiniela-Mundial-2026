@@ -11,6 +11,121 @@ const nodemailer = require('nodemailer');
 const API_KEY = process.env.FOOTBALL_DATA_API_KEY || process.env.APISPORTS_KEY;
 const API_URL = 'https://api.football-data.org/v4';
 
+// ─── TRANSLATIONS AND HELPERS FOR AUTO-VALIDATION ────────────────────────────
+const traductoresEquipos = {
+    "mexico": "mexico",
+    "south africa": "sudafrica",
+    "south korea": "corea del sur",
+    "korea republic": "corea del sur",
+    "korea, south": "corea del sur",
+    "czechia": "chequia",
+    "czech republic": "chequia",
+    "canada": "canada",
+    "bosnia and herzegovina": "bosnia y herzegovina",
+    "bosnia-herzegovina": "bosnia y herzegovina",
+    "usa": "estados unidos",
+    "united states": "estados unidos",
+    "qatar": "catar",
+    "switzerland": "suiza",
+    "brazil": "brasil",
+    "morocco": "marruecos",
+    "haiti": "haiti",
+    "scotland": "escocia",
+    "turkey": "turquia",
+    "türkiye": "turquia",
+    "germany": "alemania",
+    "curacao": "curazao",
+    "curaçao": "curazao",
+    "netherlands": "paises bajos",
+    "japan": "japon",
+    "ivory coast": "costa de marfil",
+    "côte d'ivoire": "costa de marfil",
+    "sweden": "suecia",
+    "tunisia": "tunez",
+    "spain": "espana",
+    "cape verde": "cabo verde",
+    "cabo verde": "cabo verde",
+    "belgium": "belgica",
+    "egypt": "egipto",
+    "saudi arabia": "arabia saudita",
+    "iran": "iran",
+    "new zealand": "nueva zelanda",
+    "france": "francia",
+    "iraq": "irak",
+    "norway": "noruega",
+    "algeria": "argelia",
+    "jordan": "jordania",
+    "dr congo": "rd congo",
+    "congo dr": "rd congo",
+    "democratic republic of the congo": "rd congo",
+    "england": "inglaterra",
+    "croatia": "croacia",
+    "panama": "panama",
+    "uzbekistan": "uzbekistan",
+    "colombia": "colombia",
+    "gambia": "gambia"
+};
+
+function normalizarTexto(str) {
+    if (!str) return '';
+    return str
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // remove accents
+        .trim();
+}
+
+function obtenerNombreNormalizado(nombre) {
+    if (!nombre) return "";
+    const n = nombre.toLowerCase().trim();
+    const traducido = traductoresEquipos[n] || n;
+    return normalizarTexto(traducido);
+}
+
+async function enviarCorreoResultado({ correo, nombre, local, visitante, golesLocal, golesVisitante, proLocal, proVisitante, puntos, estado, asunto, htmlPersonalizado, idUsuario, partidoId }) {
+    const emojis = { 'Exacto':'🎯', 'Acierto':'✅', 'Falló':'❌', 'Pendiente':'⏳' };
+    const emoji  = emojis[estado] || '⚽';
+    const html = htmlPersonalizado || `
+    <div style="font-family:sans-serif;max-width:500px;margin:0 auto;background:#05101a;color:white;border-radius:16px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#16883f,#0b5229);padding:1.5rem;text-align:center;">
+            <h1 style="margin:0;font-size:1.8rem;">⚽ Quiniela Mundial 2026</h1>
+        </div>
+        <div style="padding:1.5rem;">
+            <p>Hola <strong>${nombre}</strong>,</p>
+            <div style="background:rgba(255,255,255,.06);border-radius:12px;padding:1.2rem;text-align:center;margin:1rem 0;">
+                <h2>${local} <span style="color:#2ecc71;">${golesLocal} - ${golesVisitante}</span> ${visitante}</h2>
+            </div>
+            <div style="background:rgba(255,255,255,.04);border-radius:12px;padding:1.2rem;text-align:center;margin:1rem 0;">
+                <h3>Tu pronóstico: ${local} ${proLocal} - ${proVisitante} ${visitante}</h3>
+            </div>
+            <div style="text-align:center;margin:1.5rem 0;">
+                <span style="font-size:3rem;">${emoji}</span>
+                <p style="color:${puntos>0?'#2ecc71':'#e74c3c'};">${estado} — <strong>${puntos} punto${puntos!==1?'s':''}</strong></p>
+            </div>
+        </div>
+        <div style="background:rgba(0,0,0,.3);padding:1rem;text-align:center;">
+            <p style="margin:0;color:#b8c2d6;font-size:.8rem;">Quiniela Mundial 2026 — torreslab</p>
+        </div>
+    </div>`;
+
+    try {
+        await transporter.sendMail({
+            from:    process.env.EMAIL_FROM,
+            to:      correo,
+            subject: asunto || `${emoji} Resultado: ${local} ${golesLocal}-${golesVisitante} ${visitante} | Quiniela 2026`,
+            html
+        });
+        
+        await query(
+            `INSERT INTO logs_actividad (id_usuario, accion, partido_id, detalle, exito)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [idUsuario, 'correo_resultado_enviado', partidoId, `Resultado enviado a ${correo}: ${puntos} pts (${estado})`, true]
+        );
+    } catch (err) {
+        console.error('❌ Error al enviar correo de resultado:', err);
+    }
+}
+
 // ─── FUNCIÓN PRINCIPAL ────────────────────────────────────────────────────────
 async function sincronizarResultados() {
     console.log(`[${new Date().toLocaleTimeString()}] 🔄 Sincronizando resultados desde Football-Data.org...`);
@@ -21,6 +136,17 @@ async function sincronizarResultados() {
     }
 
     try {
+        // Cargar partidos.json y eliminatorios.json para relacionar IDs automáticamente
+        let todosLosPartidos = [];
+        const partidosPath = path.join(__dirname, 'data', 'partidos.json');
+        if (fs.existsSync(partidosPath)) {
+            todosLosPartidos = todosLosPartidos.concat(JSON.parse(fs.readFileSync(partidosPath, 'utf8')));
+        }
+        const elimPath = path.join(__dirname, 'data', 'eliminatorios.json');
+        if (fs.existsSync(elimPath)) {
+            todosLosPartidos = todosLosPartidos.concat(JSON.parse(fs.readFileSync(elimPath, 'utf8')));
+        }
+
         // Obtenemos partidos de ayer y hoy para evitar perder resultados por diferencias horarias (timezones)
         const dateNow = new Date();
         const dateYesterday = new Date();
@@ -55,38 +181,140 @@ async function sincronizarResultados() {
             const nombreLocal    = match.homeTeam.name;
             const nombreVisitante = match.awayTeam.name;
 
-            // Buscar si ya existe el resultado pendiente en nuestra tabla
-            const yaExiste = await query(
-                `SELECT id_pendiente FROM resultados_pendientes
-                 WHERE local_nombre = $1 AND visitante_nombre = $2`,
-                [nombreLocal, nombreVisitante]
-            );
+            // Intentar encontrar el ID del partido local por coincidencia de nombres
+            const localAPI = obtenerNombreNormalizado(nombreLocal);
+            const visitanteAPI = obtenerNombreNormalizado(nombreVisitante);
 
-            if (yaExiste.rows.length > 0) {
-                console.log(`Ya existe pendiente: ${nombreLocal} vs ${nombreVisitante}`);
-                continue;
+            const partidoEncontrado = todosLosPartidos.find(p => {
+                const localJSON = normalizarTexto(p.local);
+                const visitanteJSON = normalizarTexto(p.visitante);
+                
+                return (localJSON.includes(localAPI) || localAPI.includes(localJSON)) &&
+                       (visitanteJSON.includes(visitanteAPI) || visitanteAPI.includes(visitanteJSON));
+            });
+
+            if (partidoEncontrado) {
+                const partidoId = partidoEncontrado.id;
+
+                // 1. Verificar si ya fue validado en resultados_reales
+                const yaExisteReal = await query(
+                    `SELECT partido_id FROM resultados_reales WHERE partido_id = $1`,
+                    [partidoId]
+                );
+
+                if (yaExisteReal.rows.length > 0) {
+                    console.log(`El partido #${partidoId} (${partidoEncontrado.local} vs ${partidoEncontrado.visitante}) ya fue validado en resultados_reales. Omitiendo.`);
+                    continue;
+                }
+
+                console.log(`⚡ Auto-validando partido #${partidoId}: ${partidoEncontrado.local} vs ${partidoEncontrado.visitante} (${golesLocal}-${golesVisitante})`);
+
+                // 2. Insertar en resultados_reales
+                await query(
+                    `INSERT INTO resultados_reales (partido_id, goles_local, goles_visitante) VALUES ($1, $2, $3)
+                     ON CONFLICT (partido_id) DO UPDATE SET goles_local=$2, goles_visitante=$3`,
+                    [partidoId, golesLocal, golesVisitante]
+                );
+
+                // 3. Registrar en resultados_pendientes como ya validado
+                const yaExistePendiente = await query(
+                    `SELECT id_pendiente FROM resultados_pendientes WHERE fixture_id = $1`,
+                    [match.id]
+                );
+
+                if (yaExistePendiente.rows.length > 0) {
+                    await query(
+                        `UPDATE resultados_pendientes 
+                         SET validado=TRUE, fecha_validacion=NOW(), partido_id=$1, goles_local=$2, goles_visitante=$3
+                         WHERE fixture_id=$4`,
+                        [partidoId, golesLocal, golesVisitante, match.id]
+                    );
+                } else {
+                    await query(
+                        `INSERT INTO resultados_pendientes 
+                         (fixture_id, local_nombre, visitante_nombre, goles_local, goles_visitante, fecha_partido, validado, fecha_validacion, partido_id)
+                         VALUES ($1, $2, $3, $4, $5, $6, TRUE, NOW(), $7)`,
+                        [match.id, nombreLocal, nombreVisitante, golesLocal, golesVisitante, new Date(match.utcDate), partidoId]
+                    );
+                }
+
+                // 4. Registrar en logs_actividad
+                await query(
+                    `INSERT INTO logs_actividad (accion, partido_id, detalle, exito)
+                     VALUES ($1, $2, $3, $4)`,
+                    [
+                        'marcador_final_registrado',
+                        partidoId,
+                        `Se ha registrado el marcador final del partido #${partidoId}: ${partidoEncontrado.local} ${golesLocal} - ${golesVisitante} ${partidoEncontrado.visitante} (Auto-validado)`,
+                        true
+                    ]
+                );
+
+                // 5. Calcular puntos y enviar correos de resultados
+                const pros = await query(
+                    `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante, u.nombre, u.correo
+                     FROM pronosticos p INNER JOIN usuarios u ON p.id_usuario=u.id_usuario
+                     WHERE p.partido_id=$1 AND u.correo IS NOT NULL`,
+                    [partidoId]
+                );
+
+                for (const pro of pros.rows) {
+                    let puntos=0, estado='Falló';
+                    if (pro.pro_local===golesLocal && pro.pro_visitante===golesVisitante) { puntos=5; estado='Exacto'; }
+                    else if ((pro.pro_local>pro.pro_visitante && golesLocal>golesVisitante) || 
+                             (pro.pro_local<pro.pro_visitante && golesLocal<golesVisitante) || 
+                             (pro.pro_local===pro.pro_visitante && golesLocal===golesVisitante)) { 
+                        puntos=3; 
+                        estado='Acierto'; 
+                    }
+                    await enviarCorreoResultado({ 
+                        correo: pro.correo, 
+                        nombre: pro.nombre, 
+                        local: partidoEncontrado.local, 
+                        visitante: partidoEncontrado.visitante, 
+                        golesLocal, 
+                        golesVisitante, 
+                        proLocal: pro.pro_local, 
+                        proVisitante: pro.pro_visitante, 
+                        puntos, 
+                        estado, 
+                        idUsuario: pro.id_usuario, 
+                        partidoId 
+                    });
+                }
+
+            } else {
+                // Fallback: si no se encuentra coincidencia automática, se guarda como pendiente para validación manual
+                const yaExiste = await query(
+                    `SELECT id_pendiente FROM resultados_pendientes
+                     WHERE local_nombre = $1 AND visitante_nombre = $2`,
+                    [nombreLocal, nombreVisitante]
+                );
+
+                if (yaExiste.rows.length > 0) {
+                    console.log(`Ya existe pendiente: ${nombreLocal} vs ${nombreVisitante}`);
+                    continue;
+                }
+
+                await query(
+                    `INSERT INTO resultados_pendientes 
+                     (fixture_id, local_nombre, visitante_nombre, goles_local, goles_visitante, fecha_partido, validado)
+                     VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
+                    [match.id, nombreLocal, nombreVisitante, golesLocal, golesVisitante, new Date(match.utcDate)]
+                );
+
+                await query(
+                    `INSERT INTO logs_actividad (accion, detalle, exito)
+                     VALUES ($1, $2, $3)`,
+                    [
+                        'pendiente_sincronizado',
+                        `Marcador final sincronizado desde la API (pendiente de validar): ${nombreLocal} ${golesLocal} - ${golesVisitante} ${nombreVisitante}`,
+                        true
+                    ]
+                );
+
+                console.log(`✅ Pendiente agregado (requiere mapeo manual): ${nombreLocal} ${golesLocal}-${golesVisitante} ${nombreVisitante}`);
             }
-
-            // Insertar como pendiente de validar
-            await query(
-                `INSERT INTO resultados_pendientes 
-                 (fixture_id, local_nombre, visitante_nombre, goles_local, goles_visitante, fecha_partido, validado)
-                 VALUES ($1, $2, $3, $4, $5, $6, FALSE)`,
-                [match.id, nombreLocal, nombreVisitante, golesLocal, golesVisitante, new Date(match.utcDate)]
-            );
-
-            // Registrar log de actividad
-            await query(
-                `INSERT INTO logs_actividad (accion, detalle, exito)
-                 VALUES ($1, $2, $3)`,
-                [
-                    'pendiente_sincronizado',
-                    `Marcador final sincronizado desde la API (pendiente de validar): ${nombreLocal} ${golesLocal} - ${golesVisitante} ${nombreVisitante}`,
-                    true
-                ]
-            );
-
-            console.log(`✅ Pendiente agregado: ${nombreLocal} ${golesLocal}-${golesVisitante} ${nombreVisitante}`);
         }
 
     } catch (error) {
