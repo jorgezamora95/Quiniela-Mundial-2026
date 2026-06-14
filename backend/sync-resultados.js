@@ -44,6 +44,7 @@ const traductoresEquipos = {
     "tunisia": "tunez",
     "spain": "espana",
     "cape verde": "cabo verde",
+    "cape verde islands": "cabo verde",
     "cabo verde": "cabo verde",
     "belgium": "belgica",
     "egypt": "egipto",
