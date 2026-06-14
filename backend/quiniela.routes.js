@@ -11,7 +11,9 @@ try {
     // Migración automática de base de datos
     (async () => {
         try {
-            await query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultima_conexion TIMESTAMP DEFAULT NOW()`);
+            await query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultima_conexion TIMESTAMP DEFAULT NULL`);
+            // Inicializar todas las conexiones en NULL para limpiar valores por defecto de la migración
+            await query(`UPDATE usuarios SET ultima_conexion = NULL`);
         } catch (err) {
             console.error('⚠️ Error al agregar columna ultima_conexion:', err.message);
         }
