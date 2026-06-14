@@ -126,6 +126,62 @@ async function enviarCorreoResultado({ correo, nombre, local, visitante, golesLo
     }
 }
 
+async function recalcularPuntosTotales() {
+    try {
+        console.log('🔄 Recalculando puntos totales para todos los usuarios...');
+        const pros = await query(
+            `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante,
+                    r.goles_local AS real_local, r.goles_visitante AS real_visitante
+             FROM pronosticos p INNER JOIN resultados_reales r ON p.partido_id=r.partido_id`
+        );
+
+        const todosLosUsuarios = await query(`SELECT id_usuario FROM usuarios WHERE activo=TRUE`);
+        const mapaPuntos = {}, mapaAciertos = {};
+        todosLosUsuarios.rows.forEach(u => {
+            mapaPuntos[u.id_usuario] = 0;
+            mapaAciertos[u.id_usuario] = 0;
+        });
+
+        pros.rows.forEach(row => {
+            const id = row.id_usuario;
+            if (row.pro_local===row.real_local && row.pro_visitante===row.real_visitante) { 
+                mapaPuntos[id]+=5; 
+                mapaAciertos[id]+=1; 
+            }
+            else if (row.pro_local===row.pro_visitante && row.real_local===row.real_visitante) { 
+                mapaPuntos[id]+=1; 
+                mapaAciertos[id]+=1; 
+            }
+            else if ((row.pro_local>row.pro_visitante&&row.real_local>row.real_visitante)||(row.pro_local<row.pro_visitante&&row.real_local<row.real_visitante)) { 
+                mapaPuntos[id]+=3; 
+                mapaAciertos[id]+=1; 
+            }
+        });
+
+        const campeonReal = await query(`SELECT * FROM resultado_campeon ORDER BY id_resultado DESC LIMIT 1`);
+        if (campeonReal.rows.length > 0) {
+            const { seleccion_campeon, goles_local: cRL, goles_visitante: cRV } = campeonReal.rows[0];
+            const prosCampeon = await query(`SELECT * FROM pronosticos_campeon`);
+            prosCampeon.rows.forEach(pc => {
+                if (!mapaPuntos[pc.id_usuario]) mapaPuntos[pc.id_usuario] = 0;
+                if (pc.seleccion_campeon.toLowerCase()===seleccion_campeon.toLowerCase() && pc.goles_local===cRL && pc.goles_visitante===cRV) mapaPuntos[pc.id_usuario]+=25;
+                else if (pc.seleccion_campeon.toLowerCase()===seleccion_campeon.toLowerCase()) mapaPuntos[pc.id_usuario]+=15;
+            });
+        }
+
+        for (const id in mapaPuntos) {
+            await query(
+                `INSERT INTO puntajes (id_usuario, puntos_totales) VALUES ($1, $2)
+                 ON CONFLICT (id_usuario) DO UPDATE SET puntos_totales=$2`,
+                [parseInt(id), mapaPuntos[id]]
+            );
+        }
+        console.log('✅ Puntos totales recalculados con éxito.');
+    } catch (error) {
+        console.error('❌ Error al recalcular puntos totales:', error.message);
+    }
+}
+
 // ─── FUNCIÓN PRINCIPAL ────────────────────────────────────────────────────────
 async function sincronizarResultados() {
     console.log(`[${new Date().toLocaleTimeString()}] 🔄 Sincronizando resultados desde Football-Data.org...`);
@@ -171,6 +227,8 @@ async function sincronizarResultados() {
             console.log('Sin partidos en el rango de ayer/hoy.');
             return;
         }
+
+        let hayCambios = false;
 
         for (const match of data.matches) {
             // Solo partidos finalizados (FINISHED)
@@ -283,6 +341,8 @@ async function sincronizarResultados() {
                     });
                 }
 
+                hayCambios = true;
+
             } else {
                 // Fallback: si no se encuentra coincidencia automática, se guarda como pendiente para validación manual
                 const yaExiste = await query(
@@ -315,6 +375,10 @@ async function sincronizarResultados() {
 
                 console.log(`✅ Pendiente agregado (requiere mapeo manual): ${nombreLocal} ${golesLocal}-${golesVisitante} ${nombreVisitante}`);
             }
+        }
+
+        if (hayCambios) {
+            await recalcularPuntosTotales();
         }
 
     } catch (error) {
