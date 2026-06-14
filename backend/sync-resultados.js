@@ -475,6 +475,62 @@ async function enviarPronosticosAntesDePartido() {
                             csvContent += `${escapeCSV(row.Usuario)},${escapeCSV(row.Correo)},${row.PartidoId},${escapeCSV(matchName)},${row.PronosticoLocal},${row.PronosticoVisitante},${row.Modificaciones}\n`;
                         }
 
+                        // Generar imagen de ranking actual (Top 10) utilizando QuickChart
+                        const rankingResult = await query(`
+                            SELECT u.nombre AS "Nombre", COALESCE(p.puntos_totales, 0) AS "Puntos"
+                            FROM usuarios u
+                            LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
+                            WHERE u.activo=TRUE AND u.id_usuario != 1
+                            ORDER BY "Puntos" DESC, u.nombre ASC
+                            LIMIT 10
+                        `);
+                        const topUsers = rankingResult.rows;
+
+                        let rankingChartUrl = null;
+                        if (topUsers.length > 0) {
+                            const chartConfig = {
+                                type: 'horizontalBar',
+                                data: {
+                                    labels: topUsers.map(u => u.Nombre),
+                                    datasets: [{
+                                        data: topUsers.map(u => u.Puntos),
+                                        backgroundColor: '#2ecc71',
+                                        borderWidth: 0,
+                                        barPercentage: 0.7
+                                    }]
+                                },
+                                options: {
+                                    legend: { display: false },
+                                    title: {
+                                        display: true,
+                                        text: '🏆 RANKING ACTUAL - TOP 10',
+                                        fontColor: '#ffffff',
+                                        fontSize: 18,
+                                        fontFamily: 'sans-serif'
+                                    },
+                                    scales: {
+                                        xAxes: [{
+                                            ticks: { fontColor: '#b8c2d6', beginAtZero: true, stepSize: 1 },
+                                            gridLines: { color: 'rgba(255, 255, 255, 0.08)' }
+                                        }],
+                                        yAxes: [{
+                                            ticks: { fontColor: '#ffffff', fontSize: 12 },
+                                            gridLines: { display: false }
+                                        }]
+                                    },
+                                    plugins: {
+                                        datalabels: {
+                                            anchor: 'end',
+                                            align: 'right',
+                                            color: '#ffffff',
+                                            font: { weight: 'bold' }
+                                        }
+                                    }
+                                }
+                            };
+                            rankingChartUrl = `https://quickchart.io/chart?w=600&h=400&bkg=%2305101a&c=${encodeURIComponent(JSON.stringify(chartConfig))}`;
+                        }
+
                         // Generar HTML
                         const html = `
                         <div style="font-family:sans-serif;max-width:700px;margin:0 auto;background:#05101a;color:white;border-radius:16px;overflow:hidden;border:1px solid #1f2d3d;">
@@ -513,8 +569,16 @@ async function enviarPronosticosAntesDePartido() {
                                     </table>
                                 </div>
                                 
+                                ${rankingChartUrl ? `
+                                <div style="margin:2rem 0;text-align:center;border-top:1px solid rgba(255,255,255,.1);padding-top:1.5rem;">
+                                    <h4 style="color:#b8c2d6;margin-bottom:0.8rem;text-transform:uppercase;font-size:0.85rem;letter-spacing:1px;">🏆 Tabla de Posiciones Actual (Top 10)</h4>
+                                    <img src="${rankingChartUrl}" alt="Ranking Actual" style="max-width:100%;border-radius:12px;border:1px solid #1f2d3d;display:block;margin:0 auto;" />
+                                    <p style="font-size:0.75rem;color:#b8c2d6;margin-top:0.6rem;">💡 Guarda la imagen adjunta para compartirla en tu grupo de mensajería (WhatsApp/Telegram).</p>
+                                </div>
+                                ` : ''}
+
                                 <p style="font-size:0.85rem;color:#b8c2d6;border-top:1px solid rgba(255,255,255,.1);padding-top:1rem;">
-                                    Se adjunta el reporte en formato CSV para su uso en Excel (codificación UTF-8 para acentos y caracteres especiales).
+                                    Se adjunta el reporte en formato CSV para su uso en Excel (codificación UTF-8 para acentos y caracteres especiales) y la gráfica de tabla general actual.
                                 </p>
                             </div>
                             <div style="background:rgba(0,0,0,.3);padding:1rem;text-align:center;">
@@ -522,18 +586,27 @@ async function enviarPronosticosAntesDePartido() {
                             </div>
                         </div>`;
 
+                        const mailAttachments = [
+                            {
+                                filename: `Pronosticos_Partido_${match.id}_${match.local}_vs_${match.visitante}.csv`,
+                                content: csvContent,
+                                contentType: 'text/csv; charset=utf-8'
+                            }
+                        ];
+
+                        if (rankingChartUrl) {
+                            mailAttachments.push({
+                                filename: 'Ranking_Actual_Top_10.png',
+                                path: rankingChartUrl
+                            });
+                        }
+
                         await transporter.sendMail({
                             from:    process.env.EMAIL_FROM,
                             to:      destinatarios.join(', '),
                             subject: `📋 Pronósticos: ${match.local} vs ${match.visitante} (#${match.id})`,
                             html,
-                            attachments: [
-                                {
-                                    filename: `Pronosticos_Partido_${match.id}_${match.local}_vs_${match.visitante}.csv`,
-                                    content: csvContent,
-                                    contentType: 'text/csv; charset=utf-8'
-                                }
-                            ]
+                            attachments: mailAttachments
                         });
 
                         // Registrar Log de Actividad para cada administrador destinatario
