@@ -315,9 +315,41 @@ router.get('/obtener-resultados', async (req, res) => {
     }
 });
 
+async function guardarPosicionesActualesComoAnteriores() {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request().query(`
+            SELECT u.IdUsuario,
+                   COALESCE(p.PuntosTotales,0) AS Puntos,
+                   DENSE_RANK() OVER (ORDER BY COALESCE(p.PuntosTotales,0) DESC) AS PosicionReal
+            FROM dbo.Usuarios u
+            LEFT JOIN dbo.Puntajes p ON u.IdUsuario=p.IdUsuario
+            WHERE u.Activo=1 AND u.IdUsuario != 1
+        `);
+        
+        for (const usuario of result.recordset) {
+            await pool.request()
+                .input('IdUsuario', sql.Int, parseInt(usuario.IdUsuario))
+                .input('PosicionReal', sql.Int, usuario.PosicionReal)
+                .query(`
+                    IF EXISTS (SELECT 1 FROM dbo.Puntajes WHERE IdUsuario=@IdUsuario)
+                        UPDATE dbo.Puntajes SET posicion_anterior=@PosicionReal WHERE IdUsuario=@IdUsuario
+                    ELSE
+                        INSERT INTO dbo.Puntajes (IdUsuario, posicion_anterior) VALUES (@IdUsuario, @PosicionReal)
+                `);
+        }
+        console.log('✅ Posiciones actuales guardadas como anteriores en SQL Server.');
+    } catch (error) {
+        console.error('❌ Error al guardar posiciones actuales como anteriores en SQL Server:', error);
+    }
+}
+
 // ─── CALCULAR PUNTOS ──────────────────────────────────────────────────────────
 router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
     try {
+        // Guardar posiciones actuales como anteriores antes de recalcular los puntos
+        await guardarPosicionesActualesComoAnteriores();
+
         const pool = await poolPromise;
         const pros = await pool.request().query(`
             SELECT p.IdUsuario, p.GolesLocal AS ProLocal, p.GolesVisitante AS ProVisitante,
@@ -373,6 +405,7 @@ router.get('/tabla-general', async (req, res) => {
         const result = await pool.request().query(`
             SELECT u.IdUsuario, u.Nombre, u.FotoUrl,
                    COALESCE(p.PuntosTotales,0) AS Puntos,
+                   COALESCE(p.posicion_anterior,1) AS PosicionAnterior,
                    DENSE_RANK() OVER (ORDER BY COALESCE(p.PuntosTotales,0) DESC) AS PosicionReal,
                    (SELECT COUNT(*) FROM dbo.Pronosticos pr WHERE pr.IdUsuario=u.IdUsuario) AS Predicciones,
                    (SELECT COUNT(*) FROM dbo.Pronosticos pr

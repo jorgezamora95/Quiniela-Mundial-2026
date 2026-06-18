@@ -471,6 +471,9 @@ router.get('/obtener-resultados', async (req, res) => {
 // ─── CALCULAR PUNTOS ──────────────────────────────────────────────────────────
 router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
     try {
+        // Guardar posiciones actuales como anteriores antes de recalcular los puntos
+        await guardarPosicionesActualesComoAnteriores();
+
         const pros = await query(
             `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante,
                     r.goles_local AS real_local, r.goles_visitante AS real_visitante
@@ -530,6 +533,7 @@ async function obtenerTablaGeneralRankings() {
     const result = await query(`
         SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre", u.foto_url AS "FotoUrl", u.correo AS "Correo",
                COALESCE(p.puntos_totales,0) AS "Puntos",
+               COALESCE(p.posicion_anterior,1) AS "PosicionAnterior",
                (SELECT COUNT(*) FROM pronosticos pr WHERE pr.id_usuario=u.id_usuario) AS "Predicciones",
                (SELECT COUNT(*) FROM pronosticos pr
                 INNER JOIN resultados_reales rr ON pr.partido_id=rr.partido_id
@@ -562,8 +566,25 @@ async function obtenerTablaGeneralRankings() {
         rows[i].nombre = rows[i].Nombre;
         rows[i].correo = rows[i].Correo;
         rows[i].puntos = rows[i].Puntos;
+        rows[i].PosicionAnterior = rows[i].PosicionAnterior;
     }
     return rows;
+}
+
+async function guardarPosicionesActualesComoAnteriores() {
+    try {
+        const rankingActual = await obtenerTablaGeneralRankings();
+        for (const usuario of rankingActual) {
+            await query(
+                `INSERT INTO puntajes (id_usuario, posicion_anterior) VALUES ($1, $2)
+                 ON CONFLICT (id_usuario) DO UPDATE SET posicion_anterior=$2`,
+                [parseInt(usuario.IdUsuario), usuario.PosicionReal]
+            );
+        }
+        console.log('✅ Posiciones actuales guardadas como anteriores en la base de datos.');
+    } catch (error) {
+        console.error('❌ Error al guardar posiciones actuales como anteriores:', error);
+    }
 }
 
 // ─── TABLA GENERAL ────────────────────────────────────────────────────────────

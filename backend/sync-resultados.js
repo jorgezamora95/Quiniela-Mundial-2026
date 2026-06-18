@@ -126,9 +126,53 @@ async function enviarCorreoResultado({ correo, nombre, local, visitante, golesLo
     }
 }
 
+async function guardarPosicionesActualesComoAnteriores() {
+    try {
+        const result = await query(`
+            SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre",
+                   COALESCE(p.puntos_totales,0) AS "Puntos",
+                   (SELECT COUNT(*) FROM pronosticos pr
+                    INNER JOIN resultados_reales rr ON pr.partido_id=rr.partido_id
+                    WHERE pr.id_usuario=u.id_usuario AND (
+                        (pr.goles_local=rr.goles_local AND pr.goles_visitante=rr.goles_visitante) OR
+                        (pr.goles_local>pr.goles_visitante AND rr.goles_local>rr.goles_visitante) OR
+                        (pr.goles_local<pr.goles_visitante AND rr.goles_local<rr.goles_visitante) OR
+                        (pr.goles_local=pr.goles_visitante AND rr.goles_local=rr.goles_visitante)
+                    )) AS "Aciertos"
+            FROM usuarios u
+            LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
+            WHERE u.activo=TRUE AND u.id_usuario != 1
+            ORDER BY "Puntos" DESC, "Aciertos" DESC, u.nombre ASC
+        `);
+
+        const rows = result.rows;
+        let rank = 1;
+        for (let i = 0; i < rows.length; i++) {
+            if (i > 0) {
+                const prev = rows[i - 1];
+                const curr = rows[i];
+                if (curr.Puntos !== prev.Puntos || curr.Aciertos !== prev.Aciertos) {
+                    rank = i + 1;
+                }
+            }
+            await query(
+                `INSERT INTO puntajes (id_usuario, posicion_anterior) VALUES ($1, $2)
+                 ON CONFLICT (id_usuario) DO UPDATE SET posicion_anterior=$2`,
+                [parseInt(rows[i].IdUsuario), rank]
+            );
+        }
+        console.log('✅ Posiciones actuales guardadas como anteriores en la base de datos.');
+    } catch (error) {
+        console.error('❌ Error al guardar posiciones actuales como anteriores:', error);
+    }
+}
+
 async function recalcularPuntosTotales() {
     try {
         console.log('🔄 Recalculando puntos totales para todos los usuarios...');
+        // Guardar posiciones actuales como anteriores antes de recalcular los puntos
+        await guardarPosicionesActualesComoAnteriores();
+
         const pros = await query(
             `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante,
                     r.goles_local AS real_local, r.goles_visitante AS real_visitante

@@ -83,6 +83,28 @@ function renderizarListaRanking(listaUsuarios) {
         const userDiv = document.createElement("div");
         userDiv.className = "user-column";
 
+        // Indicador de tendencia (sube, baja, igual)
+        const trendSpan = document.createElement("span");
+        trendSpan.className = "trend-indicator";
+        
+        const posicionAnterior = usuario.PosicionAnterior;
+
+        if (posicionAnterior && posicionAnterior > 0) {
+            if (posicionReal < posicionAnterior) {
+                // Sube de posición (número menor es mejor, ej: de 5 a 3)
+                trendSpan.innerHTML = '<i class="fa-solid fa-arrow-up trend-up" title="Sube de posición"></i>';
+            } else if (posicionReal > posicionAnterior) {
+                // Baja de posición (número mayor es peor, ej: de 3 a 5)
+                trendSpan.innerHTML = '<i class="fa-solid fa-arrow-down trend-down" title="Baja de posición"></i>';
+            } else {
+                // Se mantiene igual
+                trendSpan.innerHTML = '<i class="fa-solid fa-minus trend-neutral" title="Sin cambios"></i>';
+            }
+        } else {
+            // Sin historial previo
+            trendSpan.innerHTML = '<i class="fa-solid fa-minus trend-neutral" title="Sin cambios"></i>';
+        }
+
         // ✅ Después — foto real con fallback al ícono
         const avatar = document.createElement("img");
         avatar.className = "avatar-tabla";
@@ -94,7 +116,7 @@ function renderizarListaRanking(listaUsuarios) {
 
         const txtNombre = document.createElement("strong");
         txtNombre.textContent = usuario.Nombre;
-        userDiv.append(avatar, txtNombre);
+        userDiv.append(trendSpan, avatar, txtNombre);
 
         const spanPred = document.createElement("span");
         spanPred.textContent = usuario.Predicciones;
