@@ -739,6 +739,120 @@ async function enviarPronosticosAntesDePartido() {
     }
 }
 
+async function enviarAlertaPronosticosFaltantes() {
+    console.log(`[${new Date().toLocaleTimeString()}] 📧 Chequeando partidos para alerta de pronósticos faltantes a admins...`);
+    try {
+        let todosLosPartidos = [];
+        const partidosPath = path.join(__dirname, 'data', 'partidos.json');
+        if (fs.existsSync(partidosPath)) {
+            todosLosPartidos = todosLosPartidos.concat(JSON.parse(fs.readFileSync(partidosPath, 'utf8')));
+        }
+        const elimPath = path.join(__dirname, 'data', 'eliminatorios.json');
+        if (fs.existsSync(elimPath)) {
+            todosLosPartidos = todosLosPartidos.concat(JSON.parse(fs.readFileSync(elimPath, 'utf8')));
+        }
+
+        const ahora = Date.now();
+
+        for (const match of todosLosPartidos) {
+            if (!match.id || !match.fecha || !match.hora) continue;
+
+            const horaLimpia = match.hora.replace(" hrs", "");
+            const fechaPartido = new Date(`${match.fecha} ${horaLimpia}:00 GMT-0600`);
+            const msHasta = fechaPartido.getTime() - ahora;
+
+            // Enviar alrededor de 10 minutos antes (entre 5 y 15 minutos de anticipación)
+            if (msHasta >= 5 * 60 * 1000 && msHasta <= 15 * 60 * 1000) {
+                // Verificar si ya se envió
+                const yaEnviado = await query(
+                    `SELECT id_log FROM logs_actividad 
+                     WHERE accion = 'alerta_pronosticos_faltantes_enviada' AND partido_id = $1`,
+                    [match.id]
+                );
+
+                if (yaEnviado.rows.length === 0) {
+                    // Obtener usuarios activos (excluyendo el administrador id_usuario = 1) que NO tienen pronóstico para este partido
+                    const missingUsersResult = await query(`
+                        SELECT id_usuario AS "id_usuario", nombre AS "nombre", correo AS "correo"
+                        FROM usuarios
+                        WHERE activo = TRUE AND id_usuario != 1
+                          AND id_usuario NOT IN (
+                              SELECT id_usuario FROM pronosticos WHERE partido_id = $1
+                          )
+                        ORDER BY nombre ASC
+                    `, [match.id]);
+
+                    const missingUsers = missingUsersResult.rows;
+
+                    if (missingUsers.length > 0) {
+                        console.log(`📧 Enviando alerta de pronósticos faltantes para el partido #${match.id}: ${match.local} vs ${match.visitante}...`);
+
+                        // Obtener correo del administrador
+                        const adminResult = await query(`SELECT correo FROM usuarios WHERE id_usuario = 1`);
+                        const adminEmail = adminResult.rows[0]?.correo || 'jorge.galaviz@glacy.marketing';
+
+                        const destinatarios = [adminEmail];
+                        if (adminEmail.toLowerCase() !== 'jorge.galaviz@glacy.marketing') {
+                            destinatarios.push('jorge.galaviz@glacy.marketing');
+                        }
+
+                        const matchName = `${match.local} vs ${match.visitante}`;
+                        const subject = `⚠️ RECORDATORIO: Participantes sin pronósticos para ${matchName}`;
+
+                        const html = `
+                        <div style="font-family:sans-serif;max-width:700px;margin:0 auto;background:#05101a;color:white;border-radius:16px;overflow:hidden;border:1px solid #1f2d3d;">
+                            <div style="background:linear-gradient(135deg,#e74c3c,#c0392b);padding:1.5rem;text-align:center;">
+                                <h1 style="margin:0;font-size:1.8rem;color:white;">⚠️ Pronósticos Faltantes</h1>
+                                <p style="margin:5px 0 0;color:#fce4ec;font-size:1rem;">${matchName}</p>
+                            </div>
+                            <div style="padding:1.5rem;">
+                                <p>Hola Admin,</p>
+                                <p>El partido <strong>${matchName}</strong> (#${match.id}) está programado para comenzar en unos 10 minutos (<strong>${match.fecha} a las ${match.hora}</strong>).</p>
+                                <p>Los siguientes <strong>${missingUsers.length} participantes activos</strong> aún no han guardado sus pronósticos:</p>
+                                
+                                <div style="margin:1.5rem 0;background:rgba(255,255,255,.03);padding:1rem;border-radius:8px;border:1px solid rgba(255,255,255,.05);">
+                                    <ul style="margin:0;padding-left:1.2rem;line-height:1.6;">
+                                        ${missingUsers.map(u => `<li style="color:#f1c40f;margin-bottom:5px;"><strong>${escapeHTML(u.nombre)}</strong> (${escapeHTML(u.correo)})</li>`).join('')}
+                                    </ul>
+                                </div>
+                                
+                                <p>Por favor, ponte en contacto con ellos para recordarles ingresar sus predicciones antes de que comience el partido y se bloqueen los pronósticos.</p>
+                                <p style="font-size:0.8rem;color:#b8c2d6;border-top:1px solid rgba(255,255,255,.1);padding-top:1rem;margin-top:2rem;">Este es un correo automático del sistema Quiniela Mundial 2026.</p>
+                            </div>
+                        </div>
+                        `;
+
+                        for (const email of destinatarios) {
+                            try {
+                                await transporter.sendMail({
+                                    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+                                    to: email,
+                                    subject: subject,
+                                    html: html
+                                });
+                            } catch (mailErr) {
+                                console.error(`❌ Error al enviar correo de alerta a ${email}:`, mailErr.message);
+                            }
+                        }
+
+                        // Registrar en logs_actividad
+                        await query(
+                            `INSERT INTO logs_actividad (id_usuario, accion, partido_id, detalle, exito)
+                             VALUES ($1, $2, $3, $4, $5)`,
+                            [1, 'alerta_pronosticos_faltantes_enviada', match.id, `Alerta de ${missingUsers.length} pronósticos faltantes enviada a administradores para el partido #${match.id}`, true]
+                        );
+                        console.log(`✅ Alerta de pronósticos faltantes enviada exitosamente para el partido #${match.id}.`);
+                    } else {
+                        console.log(`ℹ️ Todos los participantes tienen pronósticos para el partido #${match.id}.`);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('❌ Error en enviarAlertaPronosticosFaltantes:', error.message);
+    }
+}
+
 // ─── CRON JOBS Schedulers ──────────────────────────────────────────────────────
 // 1. Sincronización de resultados reales de Football-Data
 if (API_KEY) {
@@ -751,6 +865,10 @@ if (API_KEY) {
 // 2. Envío de pronósticos antes de cada partido
 cron.schedule('*/5 * * * *', enviarPronosticosAntesDePartido); 
 console.log('🕐 Cron job de envío de pronósticos antes de partido iniciado (cada 5 minutos).');
+
+// 3. Alerta de pronósticos faltantes
+cron.schedule('*/5 * * * *', enviarAlertaPronosticosFaltantes); 
+console.log('🕐 Cron job de alerta de pronósticos faltantes antes de partido iniciado (cada 5 minutos).');
 
 // Ejecutar al arrancar
 (async () => {
