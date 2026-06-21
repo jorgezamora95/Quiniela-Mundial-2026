@@ -807,12 +807,16 @@ async function enviarAlertaPronosticosFaltantes() {
                     if (missingUsers.length > 0) {
                         console.log(`📧 Enviando alerta de pronósticos faltantes para el partido #${match.id}: ${match.local} vs ${match.visitante}...`);
 
-                        // Obtener correo del administrador
-                        const adminResult = await query(`SELECT correo FROM usuarios WHERE id_usuario = 1`);
-                        const adminEmail = adminResult.rows[0]?.correo || 'jorge.galaviz@glacy.marketing';
-
-                        const destinatarios = [adminEmail];
-                        if (adminEmail.toLowerCase() !== 'jorge.galaviz@glacy.marketing') {
+                        // Obtener correos del administrador (id=1) y de los usuarios 2 y 3
+                        const adminsResult = await query(`
+                            SELECT correo FROM usuarios 
+                            WHERE id_usuario IN (1, 2, 3) AND activo = TRUE AND correo IS NOT NULL AND TRIM(correo) != ''
+                        `);
+                        
+                        const destinatarios = adminsResult.rows.map(r => r.correo);
+                        
+                        // Asegurar que jorge.galaviz@glacy.marketing reciba copia
+                        if (!destinatarios.some(email => email.toLowerCase() === 'jorge.galaviz@glacy.marketing')) {
                             destinatarios.push('jorge.galaviz@glacy.marketing');
                         }
 
