@@ -1050,8 +1050,19 @@ router.post('/admin/validar-pendiente', async (req, res) => {
         );
         for (const pro of pros.rows) {
             let puntos=0, estado='Falló';
-            if (pro.pro_local===goles_local&&pro.pro_visitante===goles_visitante) { puntos=5; estado='Exacto'; }
-            else if ((pro.pro_local>pro.pro_visitante&&goles_local>goles_visitante)||(pro.pro_local<pro.pro_visitante&&goles_local<goles_visitante)||(pro.pro_local===pro.pro_visitante&&goles_local===goles_visitante)) { puntos=3; estado='Acierto'; }
+            if (pro.pro_local===goles_local && pro.pro_visitante===goles_visitante) { 
+                puntos=5; 
+                estado='Exacto'; 
+            }
+            else if (pro.pro_local===pro.pro_visitante && goles_local===goles_visitante) { 
+                puntos=1; 
+                estado='Acierto'; 
+            }
+            else if ((pro.pro_local>pro.pro_visitante && goles_local>goles_visitante) || 
+                     (pro.pro_local<pro.pro_visitante && goles_local<goles_visitante)) { 
+                puntos=3; 
+                estado='Acierto'; 
+            }
             await enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local_nombre, visitante:visitante_nombre, golesLocal:goles_local, golesVisitante:goles_visitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId });
         }
 

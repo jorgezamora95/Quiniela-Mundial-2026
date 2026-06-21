@@ -382,10 +382,16 @@ async function sincronizarResultados() {
 
                 for (const pro of pros.rows) {
                     let puntos=0, estado='Falló';
-                    if (pro.pro_local===golesLocalFinal && pro.pro_visitante===golesVisitanteFinal) { puntos=5; estado='Exacto'; }
+                    if (pro.pro_local===golesLocalFinal && pro.pro_visitante===golesVisitanteFinal) { 
+                        puntos=5; 
+                        estado='Exacto'; 
+                    }
+                    else if (pro.pro_local===pro.pro_visitante && golesLocalFinal===golesVisitanteFinal) { 
+                        puntos=1; 
+                        estado='Acierto'; 
+                    }
                     else if ((pro.pro_local>pro.pro_visitante && golesLocalFinal>golesVisitanteFinal) || 
-                             (pro.pro_local<pro.pro_visitante && golesLocalFinal<golesVisitanteFinal) || 
-                             (pro.pro_local===pro.pro_visitante && golesLocalFinal===golesVisitanteFinal)) { 
+                             (pro.pro_local<pro.pro_visitante && golesLocalFinal<golesVisitanteFinal)) { 
                         puntos=3; 
                         estado='Acierto'; 
                     }
