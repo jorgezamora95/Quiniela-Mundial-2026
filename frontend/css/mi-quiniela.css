@@ -628,6 +628,12 @@ body{
     border: 1px solid rgba(241,196,15,.3);
     color: #f1c40f;
 }
+.badge-estado-partido.finalizado {
+    background: rgba(46,204,113,.1);
+    border: 1px solid rgba(46,204,113,.3);
+    color: #2ecc71;
+}
+
 
 /* Botón guardar por fila */
 .btn-guardar-fila {

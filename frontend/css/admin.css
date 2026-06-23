@@ -59,7 +59,7 @@ body{
 }
 
 .page-header h2{
-    font-size: 3rem;
+    font-size: 2.2rem;
     margin: 0;
 }
 
@@ -320,4 +320,83 @@ body{
     .save-btn{
         width: 90%;
     }
+
+    .page-header h2 {
+        font-size: 1.8rem;
+    }
+    
+    .bolsa-resumen-grid, 
+    .bolsa-premios-base-grid, 
+    .sub-row-grid, 
+    .pendiente-row-grid, 
+    .campeon-real-grid,
+    .admin-partido-row-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .sub-row-grid select, 
+    .sub-row-grid input,
+    .pendiente-row-grid select {
+        width: 100% !important;
+    }
+
+    .pendiente-row-grid div {
+        text-align: center;
+    }
+
+    .btn-enviar {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 1rem 0;
+        font-size: 0.95rem;
+        padding: 0.8rem;
+    }
 }
+
+/* Nuevas clases responsivas para el panel de administración */
+.bolsa-resumen-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+}
+
+.bolsa-premios-base-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.sub-row-grid {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1fr;
+    align-items: center;
+    gap: 1rem;
+}
+
+.pendiente-row-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 2fr 1fr 1fr;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid rgba(255,255,255,.07);
+}
+
+.campeon-real-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 1rem;
+    align-items: end;
+}
+
+.admin-partido-row-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr .8fr 0.8fr;
+    align-items: center;
+}
+

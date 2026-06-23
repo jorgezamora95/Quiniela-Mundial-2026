@@ -124,6 +124,27 @@ body{
 
 .user-column { display: flex; align-items: center; gap: .7rem; }
 .user-column i { font-size: 1.4rem; color: #b8c2d6; }
+
+/* Indicadores de tendencia de posiciones */
+.trend-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    font-size: 0.9rem;
+    margin-right: 0.1rem;
+    flex-shrink: 0;
+}
+.trend-up {
+    color: #2ecc71; /* Verde vibrante */
+}
+.trend-down {
+    color: #e74c3c; /* Rojo vibrante */
+}
+.trend-neutral {
+    color: #95a5a6; /* Gris neutro */
+}
+
 .text-green { color: #2ecc71 !important; }
 .font-bold { font-weight: bold; }
 

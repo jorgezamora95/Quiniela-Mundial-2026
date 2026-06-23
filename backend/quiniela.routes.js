@@ -8,6 +8,17 @@ const fs         = require('fs');
 
 let partidos = [];
 try {
+    // Migración automática de base de datos
+    (async () => {
+        try {
+            await query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultima_conexion TIMESTAMP DEFAULT NULL`);
+            // Inicializar todas las conexiones en NULL para limpiar valores por defecto de la migración
+            await query(`UPDATE usuarios SET ultima_conexion = NULL`);
+        } catch (err) {
+            console.error('⚠️ Error al agregar columna ultima_conexion:', err.message);
+        }
+    })();
+
     const dataPath = path.join(__dirname, 'data', 'partidos.json');
     partidos = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 } catch (err) {
@@ -219,7 +230,23 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
                 continue;
             }
 
-            // 2. Verificar modificaciones
+            // 1.5. Verificar si el pronóstico existente es idéntico al nuevo
+            const existing = await query(
+                `SELECT goles_local, goles_visitante FROM pronosticos
+                 WHERE id_usuario = $1 AND partido_id = $2`,
+                [idUsuario, pro.partidoId]
+            );
+
+            let scoreChanged = true;
+            if (existing.rows.length > 0) {
+                const oldLocal = existing.rows[0].goles_local;
+                const oldVisitante = existing.rows[0].goles_visitante;
+                if (oldLocal === pro.golesLocal && oldVisitante === pro.golesVisitante) {
+                    scoreChanged = false;
+                }
+            }
+
+            // 2. Verificar modificaciones (solo si el marcador cambió)
             const desbloq = await query(
                 `SELECT id_desbloqueo, modificaciones_usadas
                  FROM partidos_desbloqueados WHERE id_usuario=$1 AND partido_id=$2`,
@@ -233,7 +260,7 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
                 idDesbloqueo = desbloq.rows[0].id_desbloqueo;
             }
 
-            if (modUsadas >= 3) {
+            if (scoreChanged && modUsadas >= 3) {
                 const errMsg = 'Agotaste tus 3 modificaciones.';
                 errores.push(`Partido #${pro.partidoId}: ${errMsg}`);
                 await registrarLogActividad({
@@ -255,18 +282,20 @@ router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
                 [idUsuario, pro.partidoId, pro.golesLocal, pro.golesVisitante]
             );
 
-            // 4. Incrementar modificaciones
-            if (idDesbloqueo) {
-                await query(
-                    `UPDATE partidos_desbloqueados SET modificaciones_usadas=modificaciones_usadas+1 WHERE id_desbloqueo=$1`,
-                    [idDesbloqueo]
-                );
-            } else {
-                await query(
-                    `INSERT INTO partidos_desbloqueados (id_usuario, partido_id, modificaciones_usadas, goles_gastados)
-                     VALUES ($1, $2, 0, 0)`,
-                    [idUsuario, pro.partidoId]
-                );
+            // 4. Incrementar modificaciones (solo si el marcador cambió)
+            if (scoreChanged) {
+                if (idDesbloqueo) {
+                    await query(
+                        `UPDATE partidos_desbloqueados SET modificaciones_usadas=modificaciones_usadas+1 WHERE id_desbloqueo=$1`,
+                        [idDesbloqueo]
+                    );
+                } else {
+                    await query(
+                        `INSERT INTO partidos_desbloqueados (id_usuario, partido_id, modificaciones_usadas, goles_gastados)
+                         VALUES ($1, $2, 1, 0)`,
+                        [idUsuario, pro.partidoId]
+                    );
+                }
             }
 
             await registrarLogActividad({
@@ -354,6 +383,31 @@ router.get('/mis-datos/:idUsuario', validarTokenUsuario, async (req, res) => {
     }
 });
 
+// ─── PRESENCIA DE USUARIOS (HEARTBEAT) ────────────────────────────────────────
+router.post('/heartbeat', async (req, res) => {
+    try {
+        const { idUsuario } = req.body;
+        if (idUsuario) {
+            await query(
+                `UPDATE usuarios SET ultima_conexion = NOW() WHERE id_usuario = $1`,
+                [parseInt(idUsuario)]
+            );
+        }
+
+        const activeUsers = await query(
+            `SELECT id_usuario AS "idUsuario", nombre AS "nombre", foto_url AS "fotoUrl"
+             FROM usuarios
+             WHERE ultima_conexion >= NOW() - INTERVAL '2 minutes' AND activo = TRUE
+             ORDER BY nombre ASC`
+        );
+
+        return res.json({ ok: true, activeUsers: activeUsers.rows });
+    } catch (error) {
+        console.error('Error in heartbeat route:', error);
+        return res.status(500).json({ ok: false, message: 'Error en el servidor.' });
+    }
+});
+
 // ─── DESBLOQUEAR PARTIDO (DEPRECATED) ──────────────────────────────────────────
 router.post('/desbloquear-partido', async (req, res) => {
     return res.json({ ok: true, message: 'Desbloqueo automático activo.' });
@@ -417,6 +471,9 @@ router.get('/obtener-resultados', async (req, res) => {
 // ─── CALCULAR PUNTOS ──────────────────────────────────────────────────────────
 router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
     try {
+        // Guardar posiciones actuales como anteriores antes de recalcular los puntos
+        await guardarPosicionesActualesComoAnteriores();
+
         const pros = await query(
             `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante,
                     r.goles_local AS real_local, r.goles_visitante AS real_visitante
@@ -476,6 +533,7 @@ async function obtenerTablaGeneralRankings() {
     const result = await query(`
         SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre", u.foto_url AS "FotoUrl", u.correo AS "Correo",
                COALESCE(p.puntos_totales,0) AS "Puntos",
+               COALESCE(p.posicion_anterior,1) AS "PosicionAnterior",
                (SELECT COUNT(*) FROM pronosticos pr WHERE pr.id_usuario=u.id_usuario) AS "Predicciones",
                (SELECT COUNT(*) FROM pronosticos pr
                 INNER JOIN resultados_reales rr ON pr.partido_id=rr.partido_id
@@ -508,8 +566,25 @@ async function obtenerTablaGeneralRankings() {
         rows[i].nombre = rows[i].Nombre;
         rows[i].correo = rows[i].Correo;
         rows[i].puntos = rows[i].Puntos;
+        rows[i].PosicionAnterior = rows[i].PosicionAnterior;
     }
     return rows;
+}
+
+async function guardarPosicionesActualesComoAnteriores() {
+    try {
+        const rankingActual = await obtenerTablaGeneralRankings();
+        for (const usuario of rankingActual) {
+            await query(
+                `INSERT INTO puntajes (id_usuario, posicion_anterior) VALUES ($1, $2)
+                 ON CONFLICT (id_usuario) DO UPDATE SET posicion_anterior=$2`,
+                [parseInt(usuario.IdUsuario), usuario.PosicionReal]
+            );
+        }
+        console.log('✅ Posiciones actuales guardadas como anteriores en la base de datos.');
+    } catch (error) {
+        console.error('❌ Error al guardar posiciones actuales como anteriores:', error);
+    }
 }
 
 // ─── TABLA GENERAL ────────────────────────────────────────────────────────────
@@ -763,16 +838,41 @@ router.get('/admin/bolsa', async (req, res) => {
         const premio3 = bolsaPremios * (pctPremio3 / 100);
 
         const ranking = await obtenerTablaGeneralRankings();
-        const pos1 = ranking.filter(u => u.Posicion === 1);
-        const pos2 = ranking.filter(u => u.Posicion === 2);
-        const pos3 = ranking.filter(u => u.Posicion === 3);
-        const combinar = (arr, premios) => { const t=premios.reduce((a,b)=>a+b,0); return arr.map(u=>({...u,montoPremio:t/arr.length,porcentaje:((t/bolsaPremios)*100/arr.length).toFixed(2)})); };
+        const groups = {};
+        ranking.forEach(u => {
+            if (!groups[u.Posicion]) groups[u.Posicion] = [];
+            groups[u.Posicion].push(u);
+        });
 
+        const sortedRanks = Object.keys(groups).map(Number).sort((a,b) => a - b);
+        const prizes = [premio1, premio2, premio3];
         let distribucion = [];
-        if (pos1.length>1)      distribucion=[...combinar(pos1,[premio1,premio2]),...combinar(pos2.length?pos2:pos3,[premio3])];
-        else if (pos2.length>1) distribucion=[...combinar(pos1,[premio1]),...combinar(pos2,[premio2,premio3])];
-        else if (pos3.length>1) distribucion=[...combinar(pos1,[premio1]),...combinar(pos2,[premio2]),...combinar(pos3,[premio3])];
-        else distribucion=[...(pos1[0]?[{...pos1[0],montoPremio:premio1,porcentaje:pctPremio1.toFixed(2)}]:[]),...(pos2[0]?[{...pos2[0],montoPremio:premio2,porcentaje:pctPremio2.toFixed(2)}]:[]),...(pos3[0]?[{...pos3[0],montoPremio:premio3,porcentaje:pctPremio3.toFixed(2)}]:[])];
+
+        let prizeIdx = 0;
+        for (const rk of sortedRanks) {
+            if (prizeIdx >= prizes.length) break;
+            const groupUsers = groups[rk];
+            const L = groupUsers.length;
+            const groupPrizes = prizes.slice(prizeIdx, prizeIdx + L);
+            prizeIdx += L;
+
+            if (groupPrizes.length === 0) break;
+
+            const sumPrizes = groupPrizes.reduce((a,b) => a + b, 0);
+            const prizePerUser = sumPrizes / L;
+            const pctPerUser = ((sumPrizes / bolsaPremios) * 100 / L).toFixed(2);
+
+            groupUsers.forEach(u => {
+                distribucion.push({
+                    IdUsuario: u.IdUsuario,
+                    Nombre: u.Nombre,
+                    Puntos: u.Puntos,
+                    Posicion: u.Posicion,
+                    montoPremio: prizePerUser,
+                    porcentaje: pctPerUser
+                });
+            });
+        }
 
         return res.json({ ok:true, totalRecaudado, totalParticipantes, bolsaPremios, cuotaAdmin, premio1, premio2, premio3, distribucion, ranking });
     } catch (error) {
@@ -933,6 +1033,15 @@ router.post('/admin/validar-pendiente', async (req, res) => {
             [partidoId, idPendiente]
         );
 
+        // REGISTRAR LOG DE ACTIVIDAD
+        await registrarLogActividad({
+            idUsuario: 1, // Admin default ID
+            accion: 'marcador_final_registrado',
+            partidoId: partidoId,
+            detalle: `Se ha registrado el marcador final del partido #${partidoId}: ${local_nombre} ${goles_local} - ${goles_visitante} ${visitante_nombre}`,
+            exito: true
+        });
+
         const pros = await query(
             `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante, u.nombre, u.correo
              FROM pronosticos p INNER JOIN usuarios u ON p.id_usuario=u.id_usuario
@@ -941,8 +1050,19 @@ router.post('/admin/validar-pendiente', async (req, res) => {
         );
         for (const pro of pros.rows) {
             let puntos=0, estado='Falló';
-            if (pro.pro_local===goles_local&&pro.pro_visitante===goles_visitante) { puntos=5; estado='Exacto'; }
-            else if ((pro.pro_local>pro.pro_visitante&&goles_local>goles_visitante)||(pro.pro_local<pro.pro_visitante&&goles_local<goles_visitante)||(pro.pro_local===pro.pro_visitante&&goles_local===goles_visitante)) { puntos=3; estado='Acierto'; }
+            if (pro.pro_local===goles_local && pro.pro_visitante===goles_visitante) { 
+                puntos=5; 
+                estado='Exacto'; 
+            }
+            else if (pro.pro_local===pro.pro_visitante && goles_local===goles_visitante) { 
+                puntos=1; 
+                estado='Acierto'; 
+            }
+            else if ((pro.pro_local>pro.pro_visitante && goles_local>goles_visitante) || 
+                     (pro.pro_local<pro.pro_visitante && goles_local<goles_visitante)) { 
+                puntos=3; 
+                estado='Acierto'; 
+            }
             await enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local_nombre, visitante:visitante_nombre, golesLocal:goles_local, golesVisitante:goles_visitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId });
         }
 
@@ -1027,33 +1147,40 @@ router.post('/admin/sincronizar', async (req, res) => {
     }
 });
 
-// ─── STANDINGS (API-Sports) ──────────────────────────────────────────────────
+// ─── STANDINGS (Football-Data.org) ───────────────────────────────────────────
 router.get('/standings', async (req, res) => {
     try {
-        const API_KEY   = process.env.APISPORTS_KEY;
-        const LEAGUE_ID = 1, SEASON = 2026;
+        const API_KEY = process.env.FOOTBALL_DATA_API_KEY || process.env.APISPORTS_KEY;
         if (!API_KEY) return res.status(500).json({ ok: false, message: 'API Key no configurada.' });
 
         const response = await fetch(
-            `https://v3.football.api-sports.io/standings?league=${LEAGUE_ID}&season=${SEASON}`,
-            { headers: { 'x-apisports-key': API_KEY } }
+            `https://api.football-data.org/v4/competitions/WC/standings`,
+            { headers: { 'X-Auth-Token': API_KEY } }
         );
         const data = await response.json();
-        if (!data.response || data.response.length === 0) return res.json({ ok: true, grupos: {} });
+        if (data.errors || data.message || !data.standings) {
+            console.error('API Error standings:', data.message || data.errors);
+            return res.json({ ok: true, grupos: {} });
+        }
 
         const grupos = {};
-        const league = data.response[0]?.league;
-        if (!league) return res.json({ ok: true, grupos: {} });
-
-        league.standings.forEach(standing => {
-            standing.forEach(equipo => {
-                const letra = equipo.group.replace('Group ', '').trim();
-                if (!grupos[letra]) grupos[letra] = [];
+        data.standings.forEach(standing => {
+            const letra = standing.group.replace('GROUP_', '').replace('Group ', '').trim();
+            if (!grupos[letra]) grupos[letra] = [];
+            
+            standing.table.forEach(equipo => {
                 grupos[letra].push({
-                    posicion: equipo.rank, nombre: equipo.team.name, logo: equipo.team.logo,
-                    jugados: equipo.all.played, ganados: equipo.all.win, empates: equipo.all.draw,
-                    perdidos: equipo.all.lose, golesFavor: equipo.all.goals.for,
-                    golesContra: equipo.all.goals.against, diferencia: equipo.goalsDiff, puntos: equipo.points
+                    posicion: equipo.position,
+                    nombre: equipo.team.name,
+                    logo: equipo.team.crest,
+                    jugados: equipo.playedGames,
+                    ganados: equipo.won,
+                    empates: equipo.draw,
+                    perdidos: equipo.lost,
+                    golesFavor: equipo.goalsFor,
+                    golesContra: equipo.goalsAgainst,
+                    diferencia: equipo.goalDifference,
+                    puntos: equipo.points
                 });
             });
         });

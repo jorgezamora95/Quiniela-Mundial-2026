@@ -1,19 +1,28 @@
 let eliminatoriosData = [];
 let faseActiva = '16avos';
+window.resultadosRealesGlobal = window.resultadosRealesGlobal || [];
 
 async function inicializarFases() {
     const container = document.getElementById('fasesContainer');
     if (!container) return;
 
     try {
-        const [resElim, resQuiniela] = await Promise.all([
+        const [resElim, resQuiniela, resResultados] = await Promise.all([
             fetch('./data/eliminatorios.json'),
-            authFetch(`${API_URL}/api/obtener-quiniela/${localStorage.getItem('idUsuario')}`)
+            authFetch(`${API_URL}/api/obtener-quiniela/${localStorage.getItem('idUsuario')}`),
+            fetch(`${API_URL}/api/obtener-resultados`).catch(e => { console.error(e); return null; })
         ]);
 
         eliminatoriosData = await resElim.json();
         const datosQ      = await resQuiniela.json();
         const pronosticos = datosQ.pronosticos || [];
+
+        if (resResultados) {
+            const dataRes = await resResultados.json();
+            if (dataRes.ok) {
+                window.resultadosRealesGlobal = dataRes.resultados || [];
+            }
+        }
 
         // Sincronizar pronósticos guardados en memoria global
         pronosticos.forEach(p => {
@@ -153,10 +162,15 @@ function crearFilaPartidoFase(partido) {
     const estadoDiv = document.createElement('div');
     estadoDiv.className = 'estado-col';
 
+    const realResult = (window.resultadosRealesGlobal || []).find(r => r.PartidoId === partido.id);
+
     if (esPorDefinir) {
         inputLocal.readOnly = inputVisitante.readOnly = true;
         inputLocal.style.opacity = inputVisitante.style.opacity = '0.4';
         estadoDiv.innerHTML = `<span class="badge-estado-partido sin-plan" style="font-size:.75rem;">⏳ Por definir</span>`;
+    } else if (realResult) {
+        inputLocal.readOnly = inputVisitante.readOnly = true;
+        estadoDiv.innerHTML = `<span class="badge-estado-partido finalizado" style="font-size:.75rem;">🏁 Finalizado: ${realResult.GolesLocal} - ${realResult.GolesVisitante}</span>`;
     } else if (yaEmpezó) {
         inputLocal.readOnly = inputVisitante.readOnly = true;
         estadoDiv.innerHTML = `<span class="badge-estado-partido en-juego">⏱ En juego</span>`;

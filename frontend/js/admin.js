@@ -80,8 +80,7 @@ function renderizarPartidosAdmin(lista) {
         const gV  = partido.resultadoVisitante !== undefined ? partido.resultadoVisitante : (reg ? reg.GolesVisitante : "");
 
         const row = document.createElement("div");
-        row.className = "quiniela-row";
-        row.style.gridTemplateColumns = "1.5fr 1fr .8fr 0.8fr";
+        row.className = "quiniela-row admin-partido-row-grid";
 
         const matchDiv = document.createElement("div"); matchDiv.className = "match";
         const numSpan  = document.createElement("span"); numSpan.className = "num"; numSpan.textContent = partido.id;
@@ -176,7 +175,7 @@ function renderizarPanelBolsa(data) {
 
     container.innerHTML = `
         <!-- Resumen financiero -->
-        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; padding:1.5rem; border-bottom:1px solid rgba(255,255,255,.07);">
+        <div class="bolsa-resumen-grid">
             <div style="text-align:center;">
                 <small style="color:#b8c2d6;">Total recaudado</small>
                 <h2 style="margin:.3rem 0; color:white;">${fmt(data.totalRecaudado)}</h2>
@@ -211,7 +210,7 @@ function renderizarPanelBolsa(data) {
             <!-- Premios base si nadie juega aún -->
             ${data.distribucion.length === 0 ? `
                 <div style="color:#b8c2d6; text-align:center; padding:1rem;">Sin puntos registrados aún.</div>
-                <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-top:1rem;">
+                <div class="bolsa-premios-base-grid">
                     <div style="text-align:center; padding:1rem; background:rgba(255,255,255,.04); border-radius:8px;">
                         <span style="font-size:1.5rem;">🥇</span>
                         <p style="margin:.3rem 0; color:#2ecc71; font-weight:bold;">${fmt(data.premio1)}</p>
@@ -258,7 +257,7 @@ function renderizarPanelSuscripciones(usuarios) {
 
         // ─── FILA PRINCIPAL ───────────────────────────────────────────
         const card = document.createElement("div");
-        card.style.cssText = "display:grid; grid-template-columns:2fr 1.5fr 1fr; align-items:center; gap:1rem;";
+        card.className = "sub-row-grid";
 
         // Info usuario
         const userDiv = document.createElement("div");
@@ -344,6 +343,65 @@ async function inicializarPanelPendientes() {
     } catch(e) { console.error(e); }
 }
 
+const traductoresEquipos = {
+    "mexico": "méxico",
+    "south africa": "sudáfrica",
+    "south korea": "corea del sur",
+    "korea republic": "corea del sur",
+    "korea, south": "corea del sur",
+    "czechia": "chequia",
+    "czech republic": "chequia",
+    "canada": "canadá",
+    "bosnia and herzegovina": "bosnia y herzegovina",
+    "bosnia-herzegovina": "bosnia y herzegovina",
+    "usa": "estados unidos",
+    "united states": "estados unidos",
+    "qatar": "catar",
+    "switzerland": "suiza",
+    "brazil": "brasil",
+    "morocco": "marruecos",
+    "haiti": "haití",
+    "scotland": "escocia",
+    "turkey": "turquía",
+    "türkiye": "turquía",
+    "germany": "alemania",
+    "curacao": "curazao",
+    "curaçao": "curazao",
+    "netherlands": "países bajos",
+    "japan": "japón",
+    "ivory coast": "costa de marfil",
+    "côte d'ivoire": "costa de marfil",
+    "sweden": "suecia",
+    "tunisia": "túnez",
+    "spain": "españa",
+    "cape verde": "cabo verde",
+    "cape verde islands": "cabo verde",
+    "cabo verde": "cabo verde",
+    "belgium": "bélgica",
+    "egypt": "egipto",
+    "saudi arabia": "arabia saudita",
+    "iran": "irán",
+    "new zealand": "nueva zelanda",
+    "france": "francia",
+    "iraq": "irak",
+    "norway": "noruega",
+    "algeria": "argelia",
+    "jordan": "jordania",
+    "dr congo": "rd congo",
+    "congo dr": "rd congo",
+    "democratic republic of the congo": "rd congo",
+    "england": "inglaterra",
+    "croatia": "croacia",
+    "panama": "panamá",
+    "uzbekistan": "uzbekistán"
+};
+
+function traducirNombre(nombre) {
+    if (!nombre) return "";
+    const n = nombre.toLowerCase().trim();
+    return traductoresEquipos[n] || n;
+}
+
 function renderizarPendientes(pendientes) {
     const container = document.getElementById("panelPendientesAdmin");
     if (!container) return;
@@ -355,7 +413,7 @@ function renderizarPendientes(pendientes) {
     fetch("./data/partidos.json").then(r => r.json()).then(partidos => {
         pendientes.forEach(p => {
             const row = document.createElement("div");
-            row.style.cssText = "display:grid; grid-template-columns:2fr 1fr 2fr 1fr 1fr; align-items:center; gap:1rem; padding:1rem 1.2rem; border-bottom:1px solid rgba(255,255,255,.07);";
+            row.className = "pendiente-row-grid";
             const infoDiv = document.createElement("div");
             infoDiv.innerHTML = `<strong>${escapeHTML(p.LocalNombre)} ${p.GolesLocal} - ${p.GolesVisitante} ${escapeHTML(p.VisitanteNombre)}</strong><small style="display:block; color:#b8c2d6;">${new Date(p.FechaPartido).toLocaleDateString('es-MX')}</small>`;
             const badgeDiv = document.createElement("div");
@@ -367,7 +425,9 @@ function renderizarPendientes(pendientes) {
                 const opt = document.createElement("option");
                 opt.value = part.id;
                 opt.textContent = `#${part.id} ${part.local} vs ${part.visitante}`;
-                if (part.local.toLowerCase().includes(p.LocalNombre.toLowerCase().split(' ')[0])) opt.selected = true;
+                
+                const localTraducido = traducirNombre(p.LocalNombre);
+                if (part.local.toLowerCase().includes(localTraducido.split(' ')[0])) opt.selected = true;
                 selectPartido.appendChild(opt);
             });
             const btnValidar = document.createElement("button");

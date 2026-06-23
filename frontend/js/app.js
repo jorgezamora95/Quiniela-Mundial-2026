@@ -4,6 +4,8 @@ let suscripcionActiva     = false;
 let pronosticosMemoria    = {};
 let pronosticosGuardadosGlobal = [];
 let grupoActivoActual     = 'TODOS';
+window.resultadosRealesGlobal = window.resultadosRealesGlobal || [];
+
 
 async function authFetch(url, options = {}) {
     const token = localStorage.getItem("token");
@@ -33,10 +35,11 @@ async function inicializarQuiniela() {
     }
 
     try {
-        const [resPartidos, resQuiniela, resDatos] = await Promise.all([
+        const [resPartidos, resQuiniela, resDatos, resResultados] = await Promise.all([
             fetch("./data/partidos.json"),
             authFetch(`${API_URL}/api/obtener-quiniela/${idUsuario}`),
-            authFetch(`${API_URL}/api/mis-datos/${idUsuario}`)
+            authFetch(`${API_URL}/api/mis-datos/${idUsuario}`),
+            fetch(`${API_URL}/api/obtener-resultados`).catch(e => { console.error(e); return null; })
         ]);
 
         partidosGlobal              = await resPartidos.json();
@@ -44,6 +47,13 @@ async function inicializarQuiniela() {
         const datosDB               = await resQuiniela.json();
         const datosSub              = await resDatos.json();
         pronosticosGuardadosGlobal  = datosDB.pronosticos || [];
+
+        if (resResultados) {
+            const dataRes = await resResultados.json();
+            if (dataRes.ok) {
+                window.resultadosRealesGlobal = dataRes.resultados || [];
+            }
+        }
 
         suscripcionActiva = datosSub.ok && datosSub.suscripcion !== null;
         actualizarPanelGoles(datosSub.suscripcion, datosSub.partidosDesbloqueados);
@@ -259,7 +269,13 @@ function renderizarPartidos(partidosAMostrar, pronosticosGuardados = []) {
         const estadoDiv = document.createElement("div");
         estadoDiv.className = "estado-col";
 
-        if (yaEmpezó) {
+        const realResult = (window.resultadosRealesGlobal || []).find(r => r.PartidoId === partido.id);
+
+        if (realResult) {
+            inputLocal.readOnly = inputVisitante.readOnly = true;
+            row.style.opacity   = "0.85";
+            estadoDiv.innerHTML = `<span class="badge-estado-partido finalizado">🏁 Finalizado: ${realResult.GolesLocal} - ${realResult.GolesVisitante}</span>`;
+        } else if (yaEmpezó) {
             inputLocal.readOnly = inputVisitante.readOnly = true;
             row.style.opacity   = "0.4";
             estadoDiv.innerHTML = `<span class="badge-estado-partido en-juego">⏱ En juego</span>`;
@@ -443,11 +459,25 @@ function obtenerEmojiBandera(codigoPais) {
 
 function iniciarTemporizador() {
     const fechaMundial    = new Date("June 11, 2026 13:00:00 GMT-0600").getTime();
-    const contenedorReloj = document.querySelector(".timer-card h3");
+    const cardReloj       = document.querySelector(".timer-card");
+    if (!cardReloj) return;
+
+    const inicialDistancia = fechaMundial - Date.now();
+    if (inicialDistancia < 0) {
+        cardReloj.style.display = "none";
+        return;
+    }
+
+    const contenedorReloj = cardReloj.querySelector("h3");
     if (!contenedorReloj) return;
+
     const intervalo = setInterval(() => {
         const distancia = fechaMundial - Date.now();
-        if (distancia < 0) { clearInterval(intervalo); contenedorReloj.textContent = "00 : 00 : 00 : 00"; return; }
+        if (distancia < 0) {
+            clearInterval(intervalo);
+            cardReloj.style.display = "none";
+            return;
+        }
         const d=Math.floor(distancia/86400000), h=Math.floor((distancia%86400000)/3600000),
               m=Math.floor((distancia%3600000)/60000), s=Math.floor((distancia%60000)/1000);
         contenedorReloj.textContent = `${String(d).padStart(2,"0")} : ${String(h).padStart(2,"0")} : ${String(m).padStart(2,"0")} : ${String(s).padStart(2,"0")}`;

@@ -56,6 +56,12 @@ async function query(text, params) {
         `);
         console.log('✅ Columna foto_url modificada a TEXT.');
 
+        // Modificar/añadir columna posicion_anterior a la tabla puntajes
+        await pool.query(`
+            ALTER TABLE puntajes ADD COLUMN IF NOT EXISTS posicion_anterior INT DEFAULT 1;
+        `);
+        console.log('✅ Columna posicion_anterior verificada/creada en puntajes.');
+
         // Crear tabla de configuración de la bolsa si no existe
         await pool.query(`
             CREATE TABLE IF NOT EXISTS config_bolsa (

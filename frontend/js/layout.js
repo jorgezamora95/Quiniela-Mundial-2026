@@ -123,3 +123,69 @@ function inicializarSidebarGlobal() {
     // Arrancar el timer al cargar
     resetTimer();
 })();
+
+// ─── PRESENCIA DE USUARIOS CONECTADOS (HEARTBEAT) ─────────────────────────────
+(function iniciarPresenciaConectados() {
+    const idUsuario = Number(localStorage.getItem("idUsuario"));
+    if (!idUsuario) return;
+
+    async function reportarHeartbeat() {
+        try {
+            const res = await fetch(`${API_URL}/api/heartbeat`, {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ idUsuario })
+            });
+            const data = await res.json();
+            if (data.ok && data.activeUsers) {
+                renderizarUsuariosConectados(data.activeUsers);
+            }
+        } catch (e) {
+            console.error("Error al reportar presencia:", e);
+        }
+    }
+
+    function renderizarUsuariosConectados(usuarios) {
+        const container = document.getElementById("listaConectados");
+        if (!container) return; // Si la página actual no tiene la lista de conectados, no hacemos nada
+
+        container.innerHTML = "";
+        if (usuarios.length === 0) {
+            container.innerHTML = `<p style="color:#b8c2d6; font-size:0.85rem; margin:0;">No hay usuarios conectados.</p>`;
+            return;
+        }
+
+        usuarios.forEach(user => {
+            const userDiv = document.createElement("div");
+            userDiv.className = "connected-user";
+            userDiv.style.cssText = "display:flex; flex-direction:column; align-items:center; width:65px; text-align:center; position:relative; cursor:pointer;";
+            userDiv.title = user.nombre;
+
+            // Limitar longitud del nombre
+            const primerNombre = user.nombre.split(" ")[0] || "";
+            const nombreMostrar = primerNombre.length > 8 ? primerNombre.substring(0, 7) + ".." : primerNombre;
+
+            userDiv.innerHTML = `
+                <div style="position:relative; width:45px; height:45px;">
+                    <img src="${user.fotoUrl && user.fotoUrl.trim() !== "" ? user.fotoUrl : './img/user-icon.png'}" 
+                         alt="${user.nombre}" 
+                         style="width:45px; height:45px; border-radius:50%; border:3px solid #2ecc71; object-fit:cover; background:#0d1f33;" 
+                         onerror="this.src='./img/user-icon.png';" />
+                    <span style="position:absolute; bottom:0; right:0; width:12px; height:12px; background:#2ecc71; border:2px solid #05101a; border-radius:50%;"></span>
+                </div>
+                <span style="font-size:0.7rem; color:#b8c2d6; margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%; font-weight:500;">
+                    ${nombreMostrar}
+                </span>
+            `;
+            container.appendChild(userDiv);
+        });
+    }
+
+    // Reportar inmediatamente al cargar la página
+    reportarHeartbeat();
+
+    // Reportar cada 30 segundos
+    setInterval(reportarHeartbeat, 30000);
+})();
