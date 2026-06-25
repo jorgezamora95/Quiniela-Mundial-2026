@@ -2,7 +2,7 @@
 // Cron job: sincroniza resultados desde Football-Data.org cada 5 minutos
 
 const cron       = require('node-cron');
-const { sql, poolPromise } = require('./db');
+const { sql, poolPromise } = require('./db.sql');
 const path       = require('path');
 const fs         = require('fs');
 const nodemailer = require('nodemailer');

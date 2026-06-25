@@ -3,7 +3,7 @@ const cors    = require("cors");
 const bcrypt  = require("bcrypt");
 const crypto  = require("crypto");
 const { z }   = require('zod');
-const { sql, poolPromise } = require("./db");
+const { sql, poolPromise } = require("./db.sql");
 
 const app = express();
 
@@ -227,7 +227,7 @@ app.post("/api/restablecer-password", async (req, res) => {
 });
 
 // ─── RUTAS EXTERNAS ───────────────────────────────────────────────────────────
-app.use('/api', require('./quiniela.routes'));
+app.use('/api', require('./quiniela.routes.sql'));
 require('./sync-resultados'); // ← descomentar el 11 de Junio
 
 app.listen(process.env.PORT || 3000, "0.0.0.0", () => {

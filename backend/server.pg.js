@@ -3,7 +3,7 @@ const cors    = require("cors");
 const bcrypt  = require("bcrypt");
 const crypto  = require("crypto");
 const { z }   = require('zod');
-const { query } = require('./db');
+const { query } = require('./db.sql');
 
 const app = express();
 

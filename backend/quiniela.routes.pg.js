@@ -2,83 +2,83 @@ const express    = require('express');
 const router     = express.Router();
 const { z }      = require('zod');
 const nodemailer = require('nodemailer');
-const { query }  = require('./db.pg');
+const { pool }   = require('./db.pg');          // ← pg pool
 const path       = require('path');
 const fs         = require('fs');
+const crypto     = require('crypto');
 
 let partidos = [];
 try {
-    // Migración automática de base de datos
-    (async () => {
-        try {
-            await query(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS ultima_conexion TIMESTAMP DEFAULT NULL`);
-            // Inicializar todas las conexiones en NULL para limpiar valores por defecto de la migración
-            await query(`UPDATE usuarios SET ultima_conexion = NULL`);
-        } catch (err) {
-            console.error('⚠️ Error al agregar columna ultima_conexion:', err.message);
-        }
-    })();
-
     const dataPath = path.join(__dirname, 'data', 'partidos.json');
     partidos = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 } catch (err) {
     console.error('Error al cargar partidos.json en el backend:', err);
 }
 
-async function registrarLogActividad({ idUsuario, accion, partidoId, detalle, exito, errorMessage }) {
+// ─── HELPER QUERY ─────────────────────────────────────────────────────────────
+// Convierte llamadas estilo mssql a pg transparentemente
+async function query(text, params = []) {
+    const client = await pool.connect();
     try {
-        await query(
-            `INSERT INTO logs_actividad (id_usuario, accion, partido_id, detalle, exito, error_message)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [idUsuario || null, accion, partidoId || null, detalle || null, exito ?? true, errorMessage || null]
-        );
-    } catch (err) {
-        console.error('❌ Error al registrar log de actividad:', err);
+        const res = await client.query(text, params);
+        return res.rows;
+    } finally {
+        client.release();
     }
 }
 
-const crypto = require('crypto');
+// ─── LOG ACTIVIDAD ────────────────────────────────────────────────────────────
+async function registrarLogActividad({ idUsuario, accion, partidoId, detalle, exito, errorMessage }) {
+    try {
+        await query(
+            `INSERT INTO logs_actividad (id_usuario,accion,partido_id,detalle,exito,error_message)
+             VALUES ($1,$2,$3,$4,$5,$6)`,
+            [idUsuario || null, accion, partidoId || null, detalle || null, exito ?? true, errorMessage || null]
+        );
+    } catch (err) {
+        console.error('❌ Error al registrar log:', err);
+    }
+}
 
+// ─── SELLAR PRONÓSTICO ────────────────────────────────────────────────────────
+async function sellarPronostico(idUsuario, partidoId, golesLocal, golesVisitante) {
+    const fecha = new Date();
+    const data  = `${idUsuario}|${partidoId}|${golesLocal}|${golesVisitante}|${fecha.toISOString()}`;
+    const hash  = crypto.createHmac('sha256', process.env.ADMIN_SECRET || 'default-admin-secret-2026-torreslab')
+                        .update(data).digest('hex');
+    await query(
+        `UPDATE pronosticos
+         SET fecha_registro      = CASE WHEN fecha_registro IS NULL THEN $3 ELSE fecha_registro END,
+             fecha_actualizacion = $3,
+             hash_integridad     = $4,
+             modificado_por      = NULL
+         WHERE id_usuario = $1 AND partido_id = $2`,
+        [idUsuario, partidoId, fecha, hash]
+    );
+}
+
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
 function validarTokenAdmin(req, res, next) {
     const token = req.headers['x-admin-token'] || req.query.adminToken;
-    if (!token) {
-        return res.status(401).json({ ok: false, message: 'No autorizado.' });
-    }
-
-    const secret = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
+    if (!token) return res.status(401).json({ ok: false, message: 'No autorizado.' });
+    const secret        = process.env.ADMIN_SECRET || 'default-admin-secret-2026-torreslab';
     const expectedToken = crypto.createHmac('sha256', secret).update('1').digest('hex');
-
-    if (token !== expectedToken) {
-        return res.status(401).json({ ok: false, message: 'Acceso denegado.' });
-    }
-
+    if (token !== expectedToken) return res.status(401).json({ ok: false, message: 'Acceso denegado.' });
     next();
 }
 
 function validarTokenUsuario(req, res, next) {
     let idUsuario = req.params.idUsuario || req.body.idUsuario || req.query.idUsuario;
-    if (!idUsuario) {
-        return res.status(400).json({ ok: false, message: 'Falta ID de usuario para validación.' });
-    }
-
+    if (!idUsuario) return res.status(400).json({ ok: false, message: 'Falta ID de usuario.' });
     idUsuario = parseInt(idUsuario);
-
     const token = req.headers['x-user-token'];
-    if (!token) {
-        return res.status(401).json({ ok: false, message: 'No autorizado. Falta token de sesión.' });
-    }
-
-    const secret = process.env.ADMIN_SECRET || "default-admin-secret-2026-torreslab";
+    if (!token) return res.status(401).json({ ok: false, message: 'No autorizado. Falta token.' });
+    const secret        = process.env.ADMIN_SECRET || 'default-admin-secret-2026-torreslab';
     const expectedToken = crypto.createHmac('sha256', secret).update(String(idUsuario)).digest('hex');
-
-    if (token !== expectedToken) {
-        return res.status(403).json({ ok: false, message: 'Acceso denegado. Token inválido.' });
-    }
-
+    if (token !== expectedToken) return res.status(403).json({ ok: false, message: 'Token inválido.' });
     next();
 }
 
-// Proteger todas las rutas administrativas
 router.use('/admin', validarTokenAdmin);
 
 // ─── NODEMAILER ───────────────────────────────────────────────────────────────
@@ -87,10 +87,10 @@ const transporter = nodemailer.createTransport({
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
 });
 
-async function enviarCorreoResultado({ correo, nombre, local, visitante, golesLocal, golesVisitante, proLocal, proVisitante, puntos, estado, asunto, htmlPersonalizado, idUsuario, partidoId }) {
+async function enviarCorreoResultado({ correo, nombre, local, visitante, golesLocal, golesVisitante, proLocal, proVisitante, puntos, estado, asunto, htmlPersonalizado }) {
     const emojis = { 'Exacto':'🎯', 'Acierto':'✅', 'Falló':'❌', 'Pendiente':'⏳' };
     const emoji  = emojis[estado] || '⚽';
-    const html = htmlPersonalizado || `
+    const html   = htmlPersonalizado || `
     <div style="font-family:sans-serif;max-width:500px;margin:0 auto;background:#05101a;color:white;border-radius:16px;overflow:hidden;">
         <div style="background:linear-gradient(135deg,#16883f,#0b5229);padding:1.5rem;text-align:center;">
             <h1 style="margin:0;font-size:1.8rem;">⚽ Quiniela Mundial 2026</h1>
@@ -112,32 +112,12 @@ async function enviarCorreoResultado({ correo, nombre, local, visitante, golesLo
             <p style="margin:0;color:#b8c2d6;font-size:.8rem;">Quiniela Mundial 2026 — torreslab</p>
         </div>
     </div>`;
-
-    try {
-        await transporter.sendMail({
-            from:    process.env.EMAIL_FROM,
-            to:      correo,
-            subject: asunto || `${emoji} Resultado: ${local} ${golesLocal}-${golesVisitante} ${visitante} | Quiniela 2026`,
-            html
-        });
-        await registrarLogActividad({
-            idUsuario: idUsuario || null,
-            accion: 'enviar_correo_resultado',
-            partidoId: partidoId || null,
-            detalle: `Correo enviado a ${correo} (${estado})`,
-            exito: true
-        });
-    } catch (err) {
-        console.error(`❌ Error enviando correo a ${correo}:`, err);
-        await registrarLogActividad({
-            idUsuario: idUsuario || null,
-            accion: 'enviar_correo_resultado',
-            partidoId: partidoId || null,
-            detalle: `Fallo correo a ${correo}: ${err.message}`,
-            exito: false,
-            errorMessage: err.message
-        });
-    }
+    await transporter.sendMail({
+        from:    process.env.EMAIL_FROM,
+        to:      correo,
+        subject: asunto || `${emoji} Resultado: ${local} ${golesLocal}-${golesVisitante} ${visitante} | Quiniela 2026`,
+        html
+    });
 }
 
 // ─── SCHEMAS ──────────────────────────────────────────────────────────────────
@@ -163,252 +143,168 @@ const campeonSchema = z.object({
     golesVisitante:   z.number().int().min(0).max(50)
 });
 
-function calcularCostoGoles(ms) {
-    if (ms <= 0)              return null;
-    if (ms <= 30*60*1000)    return 5;
-    if (ms <= 59*60*1000)    return 3;
-    return 1;
-}
-
 // ─── GUARDAR QUINIELA ─────────────────────────────────────────────────────────
 router.post('/guardar-quiniela', validarTokenUsuario, async (req, res) => {
+    let idUsuario;
     try {
-        const { idUsuario, pronosticos } = req.body;
+        const body = req.body;
+        idUsuario  = body.idUsuario;
+        const { pronosticos } = body;
 
         const sub = await query(
-            `SELECT s.id_suscripcion
-             FROM suscripciones s
-             WHERE s.id_usuario=$1 AND s.activa=TRUE`,
+            `SELECT id_suscripcion FROM suscripciones WHERE id_usuario=$1 AND activa=true`,
             [idUsuario]
         );
-        if (sub.rows.length === 0) {
+        if (sub.length === 0) {
             const errMsg = '⛔ No tienes suscripción activa.';
-            await registrarLogActividad({
-                idUsuario,
-                accion: 'guardar_quiniela',
-                detalle: 'Intento de guardar quiniela sin suscripción activa',
-                exito: false,
-                errorMessage: errMsg
-            });
+            await registrarLogActividad({ idUsuario, accion:'guardar_quiniela', detalle:'Sin suscripción activa', exito:false, errorMessage:errMsg });
             return res.status(403).json({ ok: false, message: errMsg });
         }
 
         let errores = [], guardados = 0;
 
         for (const pro of pronosticos) {
-            // 1. Verificar fecha del partido
             const partido = partidos.find(p => p.id === pro.partidoId);
             if (!partido) {
                 const errMsg = `Partido #${pro.partidoId} no encontrado.`;
                 errores.push(errMsg);
-                await registrarLogActividad({
-                    idUsuario,
-                    accion: 'guardar_quiniela',
-                    partidoId: pro.partidoId,
-                    detalle: `Intento Pronóstico: ${pro.golesLocal} - ${pro.golesVisitante}`,
-                    exito: false,
-                    errorMessage: errMsg
-                });
+                await registrarLogActividad({ idUsuario, accion:'guardar_quiniela', partidoId:pro.partidoId, detalle:`Pronóstico: ${pro.golesLocal}-${pro.golesVisitante}`, exito:false, errorMessage:errMsg });
                 continue;
             }
 
-            const horaLimpia   = partido.hora.replace(" hrs", "");
+            const horaLimpia   = partido.hora.replace(' hrs', '');
             const fechaPartido = new Date(`${partido.fecha} ${horaLimpia}:00 GMT-0600`);
-            const msHasta      = fechaPartido.getTime() - Date.now();
-
-            if (msHasta <= 0) {
-                const errMsg = 'El partido ya comenzó y no se puede modificar.';
+            if (fechaPartido.getTime() - Date.now() <= 0) {
+                const errMsg = 'El partido ya comenzó.';
                 errores.push(`Partido #${pro.partidoId} (${partido.local} vs ${partido.visitante}) ${errMsg}`);
-                await registrarLogActividad({
-                    idUsuario,
-                    accion: 'guardar_quiniela',
-                    partidoId: pro.partidoId,
-                    detalle: `Intento Pronóstico: ${pro.golesLocal} - ${pro.golesVisitante}`,
-                    exito: false,
-                    errorMessage: errMsg
-                });
+                await registrarLogActividad({ idUsuario, accion:'guardar_quiniela', partidoId:pro.partidoId, detalle:`Pronóstico: ${pro.golesLocal}-${pro.golesVisitante}`, exito:false, errorMessage:errMsg });
                 continue;
             }
 
-            // 1.5. Verificar si el pronóstico existente es idéntico al nuevo
+            // Verificar si el marcador cambió (no contar modificación si es idéntico)
             const existing = await query(
-                `SELECT goles_local, goles_visitante FROM pronosticos
-                 WHERE id_usuario = $1 AND partido_id = $2`,
+                `SELECT goles_local, goles_visitante FROM pronosticos WHERE id_usuario=$1 AND partido_id=$2`,
                 [idUsuario, pro.partidoId]
             );
-
             let scoreChanged = true;
-            if (existing.rows.length > 0) {
-                const oldLocal = existing.rows[0].goles_local;
-                const oldVisitante = existing.rows[0].goles_visitante;
-                if (oldLocal === pro.golesLocal && oldVisitante === pro.golesVisitante) {
+            if (existing.length > 0) {
+                if (existing[0].goles_local === pro.golesLocal && existing[0].goles_visitante === pro.golesVisitante)
                     scoreChanged = false;
-                }
             }
 
-            // 2. Verificar modificaciones (solo si el marcador cambió)
             const desbloq = await query(
-                `SELECT id_desbloqueo, modificaciones_usadas
-                 FROM partidos_desbloqueados WHERE id_usuario=$1 AND partido_id=$2`,
+                `SELECT id_desbloqueo, modificaciones_usadas FROM partidos_desbloqueados
+                 WHERE id_usuario=$1 AND partido_id=$2`,
                 [idUsuario, pro.partidoId]
             );
 
-            let modUsadas = 0;
-            let idDesbloqueo = null;
-            if (desbloq.rows.length > 0) {
-                modUsadas = desbloq.rows[0].modificaciones_usadas;
-                idDesbloqueo = desbloq.rows[0].id_desbloqueo;
+            let modUsadas = 0, idDesbloqueo = null;
+            if (desbloq.length > 0) {
+                modUsadas    = desbloq[0].modificaciones_usadas;
+                idDesbloqueo = desbloq[0].id_desbloqueo;
             }
 
             if (scoreChanged && modUsadas >= 3) {
                 const errMsg = 'Agotaste tus 3 modificaciones.';
                 errores.push(`Partido #${pro.partidoId}: ${errMsg}`);
-                await registrarLogActividad({
-                    idUsuario,
-                    accion: 'guardar_quiniela',
-                    partidoId: pro.partidoId,
-                    detalle: `Intento Pronóstico: ${pro.golesLocal} - ${pro.golesVisitante}`,
-                    exito: false,
-                    errorMessage: errMsg
-                });
+                await registrarLogActividad({ idUsuario, accion:'guardar_quiniela', partidoId:pro.partidoId, detalle:`Pronóstico: ${pro.golesLocal}-${pro.golesVisitante}`, exito:false, errorMessage:errMsg });
                 continue;
             }
 
-            // 3. Guardar pronóstico
+            // Guardar pronóstico — UPSERT en pg
             await query(
                 `INSERT INTO pronosticos (id_usuario, partido_id, goles_local, goles_visitante)
-                 VALUES ($1, $2, $3, $4)
-                 ON CONFLICT (id_usuario, partido_id) DO UPDATE SET goles_local=$3, goles_visitante=$4`,
+                 VALUES ($1,$2,$3,$4)
+                 ON CONFLICT (id_usuario, partido_id)
+                 DO UPDATE SET goles_local=$3, goles_visitante=$4`,
                 [idUsuario, pro.partidoId, pro.golesLocal, pro.golesVisitante]
             );
 
-            // 4. Incrementar modificaciones (solo si el marcador cambió)
             if (scoreChanged) {
                 if (idDesbloqueo) {
                     await query(
-                        `UPDATE partidos_desbloqueados SET modificaciones_usadas=modificaciones_usadas+1 WHERE id_desbloqueo=$1`,
+                        `UPDATE partidos_desbloqueados SET modificaciones_usadas=modificaciones_usadas+1
+                         WHERE id_desbloqueo=$1`,
                         [idDesbloqueo]
                     );
                 } else {
                     await query(
-                        `INSERT INTO partidos_desbloqueados (id_usuario, partido_id, modificaciones_usadas, goles_gastados)
-                         VALUES ($1, $2, 1, 0)`,
+                        `INSERT INTO partidos_desbloqueados (id_usuario,partido_id,modificaciones_usadas,goles_gastados)
+                         VALUES ($1,$2,1,0)`,
                         [idUsuario, pro.partidoId]
                     );
                 }
             }
 
-            await registrarLogActividad({
-                idUsuario,
-                accion: 'guardar_quiniela',
-                partidoId: pro.partidoId,
-                detalle: `Pronóstico guardado: ${pro.golesLocal} - ${pro.golesVisitante}`,
-                exito: true
-            });
-
+            await sellarPronostico(idUsuario, pro.partidoId, pro.golesLocal, pro.golesVisitante);
+            await registrarLogActividad({ idUsuario, accion:'guardar_quiniela', partidoId:pro.partidoId, detalle:`Pronóstico: ${pro.golesLocal}-${pro.golesVisitante}`, exito:true });
             guardados++;
         }
 
+        // Crear quiniela si no existe
         await query(
-            `INSERT INTO quinielas (id_usuario, estatus) VALUES ($1, 'Borrador') ON CONFLICT (id_usuario) DO NOTHING`,
+            `INSERT INTO quinielas (id_usuario, estatus) VALUES ($1,'Borrador')
+             ON CONFLICT (id_usuario) DO NOTHING`,
             [idUsuario]
         );
 
         const desb = await query(
-            `SELECT partido_id AS "PartidoId", modificaciones_usadas AS "ModificacionesUsadas", goles_gastados AS "GolesGastados"
+            `SELECT partido_id AS "PartidoId", modificaciones_usadas AS "ModificacionesUsadas",
+                    goles_gastados AS "GolesGastados"
              FROM partidos_desbloqueados WHERE id_usuario=$1`,
             [idUsuario]
         );
 
-        const msg = errores.length > 0
-            ? `⚠️ No se pudo guardar: ${errores.join(' | ')}`
-            : `✅ Pronóstico guardado correctamente.`;
-
-        return res.json({ ok: guardados > 0, message: msg, partidosDesbloqueados: desb.rows });
+        const msg = errores.length > 0 ? `⚠️ No se pudo guardar: ${errores.join(' | ')}` : `✅ Pronóstico guardado correctamente.`;
+        return res.json({ ok: guardados > 0, message: msg, partidosDesbloqueados: desb });
 
     } catch (error) {
         console.error(error);
-        await registrarLogActividad({
-            idUsuario,
-            accion: 'guardar_quiniela',
-            exito: false,
-            errorMessage: error.message || 'Error al procesar.'
-        });
+        await registrarLogActividad({ idUsuario, accion:'guardar_quiniela', exito:false, errorMessage:error.message });
         return res.status(400).json({ ok: false, message: 'Error al procesar.' });
     }
 });
 
-
 // ─── OBTENER QUINIELA ─────────────────────────────────────────────────────────
 router.get('/obtener-quiniela/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
-        const idUsuario = parseInt(req.params.idUsuario);
-        const result = await query(
+        const rows = await query(
             `SELECT partido_id AS "PartidoId", goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante"
              FROM pronosticos WHERE id_usuario=$1`,
-            [idUsuario]
+            [parseInt(req.params.idUsuario)]
         );
-        return res.json({ ok: true, pronosticos: result.rows });
+        return res.json({ ok: true, pronosticos: rows });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error al recuperar datos.' });
     }
 });
 
-// ─── MIS DATOS (suscripción + partidos desbloqueados) ────────────────────────
+// ─── MIS DATOS ────────────────────────────────────────────────────────────────
 router.get('/mis-datos/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
         const idUsuario = parseInt(req.params.idUsuario);
 
         const sub = await query(
-            `SELECT s.goles_restantes AS "GolesRestantes", p.nombre AS "Paquete",
-                    p.max_partidos AS "MaxPartidos", p.goles AS "GolesIniciales"
+            `SELECT s.goles_restantes, p.nombre AS "Paquete", p.max_partidos AS "MaxPartidos", p.goles AS "GolesIniciales"
              FROM suscripciones s INNER JOIN paquetes p ON s.id_paquete=p.id_paquete
-             WHERE s.id_usuario=$1 AND s.activa=TRUE`,
+             WHERE s.id_usuario=$1 AND s.activa=true`,
             [idUsuario]
         );
 
         const desb = await query(
-            `SELECT partido_id AS "PartidoId", modificaciones_usadas AS "ModificacionesUsadas", goles_gastados AS "GolesGastados"
+            `SELECT partido_id AS "PartidoId", modificaciones_usadas AS "ModificacionesUsadas",
+                    goles_gastados AS "GolesGastados"
              FROM partidos_desbloqueados WHERE id_usuario=$1`,
             [idUsuario]
         );
 
-        return res.json({
-            ok: true,
-            suscripcion: sub.rows[0] || null,
-            partidosDesbloqueados: desb.rows
-        });
+        return res.json({ ok: true, suscripcion: sub[0] || null, partidosDesbloqueados: desb });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error al obtener datos.' });
     }
 });
 
-// ─── PRESENCIA DE USUARIOS (HEARTBEAT) ────────────────────────────────────────
-router.post('/heartbeat', async (req, res) => {
-    try {
-        const { idUsuario } = req.body;
-        if (idUsuario) {
-            await query(
-                `UPDATE usuarios SET ultima_conexion = NOW() WHERE id_usuario = $1`,
-                [parseInt(idUsuario)]
-            );
-        }
-
-        const activeUsers = await query(
-            `SELECT id_usuario AS "idUsuario", nombre AS "nombre", foto_url AS "fotoUrl"
-             FROM usuarios
-             WHERE ultima_conexion >= NOW() - INTERVAL '2 minutes' AND activo = TRUE
-             ORDER BY nombre ASC`
-        );
-
-        return res.json({ ok: true, activeUsers: activeUsers.rows });
-    } catch (error) {
-        console.error('Error in heartbeat route:', error);
-        return res.status(500).json({ ok: false, message: 'Error en el servidor.' });
-    }
-});
-
-// ─── DESBLOQUEAR PARTIDO (DEPRECATED) ──────────────────────────────────────────
+// ─── DESBLOQUEAR PARTIDO (DEPRECATED) ────────────────────────────────────────
 router.post('/desbloquear-partido', async (req, res) => {
     return res.json({ ok: true, message: 'Desbloqueo automático activo.' });
 });
@@ -421,36 +317,28 @@ router.post('/guardar-resultado', validarTokenAdmin, async (req, res) => {
 
         await query(
             `INSERT INTO resultados_reales (partido_id, goles_local, goles_visitante)
-             VALUES ($1, $2, $3)
-             ON CONFLICT (partido_id) DO UPDATE SET goles_local=$2, goles_visitante=$3`,
+             VALUES ($1,$2,$3)
+             ON CONFLICT (partido_id)
+             DO UPDATE SET goles_local=$2, goles_visitante=$3`,
             [partidoId, golesLocal, golesVisitante]
         );
 
-        res.json({ ok: true, message: 'Resultado oficial guardado. Enviando notificaciones...' });
+        res.json({ ok: true, message: 'Resultado guardado. Enviando notificaciones...' });
 
         const pros = await query(
-            `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante,
-                    u.nombre, u.correo
+            `SELECT p.id_usuario, p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
+                    u.nombre AS "Nombre", u.correo AS "Correo"
              FROM pronosticos p INNER JOIN usuarios u ON p.id_usuario=u.id_usuario
              WHERE p.partido_id=$1 AND u.correo IS NOT NULL AND u.correo!=''`,
             [partidoId]
         );
 
-        for (const pro of pros.rows) {
-            let puntos = 0, estado = 'Falló';
-            if (pro.pro_local===golesLocal && pro.pro_visitante===golesVisitante) { 
-                puntos=5; 
-                estado='Exacto'; 
-            }
-            else if (pro.pro_local===pro.pro_visitante && golesLocal===golesVisitante) { 
-                puntos=1; 
-                estado='Acierto'; 
-            }
-            else if ((pro.pro_local>pro.pro_visitante&&golesLocal>golesVisitante)||(pro.pro_local<pro.pro_visitante&&golesLocal<golesVisitante)) { 
-                puntos=3; 
-                estado='Acierto'; 
-            }
-            await enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local||'Local', visitante:visitante||'Visitante', golesLocal, golesVisitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId });
+        for (const pro of pros) {
+            let puntos=0, estado='Falló';
+            if (pro.ProLocal===golesLocal && pro.ProVisitante===golesVisitante) { puntos=5; estado='Exacto'; }
+            else if (pro.ProLocal===pro.ProVisitante && golesLocal===golesVisitante) { puntos=1; estado='Acierto'; }
+            else if ((pro.ProLocal>pro.ProVisitante&&golesLocal>golesVisitante)||(pro.ProLocal<pro.ProVisitante&&golesLocal<golesVisitante)) { puntos=3; estado='Acierto'; }
+            enviarCorreoResultado({ correo:pro.Correo, nombre:pro.Nombre, local:local||'Local', visitante:visitante||'Visitante', golesLocal, golesVisitante, proLocal:pro.ProLocal, proVisitante:pro.ProVisitante, puntos, estado }).catch(console.error);
         }
     } catch (error) {
         console.error(error);
@@ -461,54 +349,79 @@ router.post('/guardar-resultado', validarTokenAdmin, async (req, res) => {
 // ─── OBTENER RESULTADOS ───────────────────────────────────────────────────────
 router.get('/obtener-resultados', async (req, res) => {
     try {
-        const result = await query(`SELECT partido_id AS "PartidoId", goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante" FROM resultados_reales`);
-        return res.json({ ok: true, resultados: result.rows });
+        const rows = await query(
+            `SELECT partido_id AS "PartidoId", goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante"
+             FROM resultados_reales`
+        );
+        return res.json({ ok: true, resultados: rows });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
 });
 
+// ─── HELPER: GUARDAR POSICIONES ANTERIORES ───────────────────────────────────
+async function guardarPosicionesActualesComoAnteriores() {
+    try {
+        const result = await query(
+            `SELECT u.id_usuario, COALESCE(p.puntos_totales,0) AS puntos,
+                    (SELECT COUNT(*) FROM pronosticos pr
+                     INNER JOIN resultados_reales rr ON pr.partido_id=rr.partido_id
+                     WHERE pr.id_usuario=u.id_usuario AND (
+                         (pr.goles_local=rr.goles_local AND pr.goles_visitante=rr.goles_visitante) OR
+                         (pr.goles_local>pr.goles_visitante AND rr.goles_local>rr.goles_visitante) OR
+                         (pr.goles_local<pr.goles_visitante AND rr.goles_local<rr.goles_visitante) OR
+                         (pr.goles_local=pr.goles_visitante AND rr.goles_local=rr.goles_visitante)
+                     )) AS aciertos
+             FROM usuarios u LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
+             WHERE u.activo=TRUE AND u.id_usuario!=1
+             ORDER BY puntos DESC, aciertos DESC, u.nombre ASC`
+        );
+        const rows = result.rows;
+        let rank = 1;
+        for (let i=0; i<rows.length; i++) {
+            if (i>0 && (rows[i].puntos!==rows[i-1].puntos || rows[i].aciertos!==rows[i-1].aciertos)) rank=i+1;
+            await query(
+                `INSERT INTO puntajes (id_usuario, posicion_anterior) VALUES ($1,$2)
+                 ON CONFLICT (id_usuario) DO UPDATE SET posicion_anterior=$2`,
+                [parseInt(rows[i].id_usuario), rank]
+            );
+        }
+        console.log('✅ Posiciones guardadas como anteriores.');
+    } catch (err) {
+        console.error('❌ Error posiciones anteriores:', err.message);
+    }
+}
+
+
 // ─── CALCULAR PUNTOS ──────────────────────────────────────────────────────────
 router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
     try {
-        // Guardar posiciones actuales como anteriores antes de recalcular los puntos
         await guardarPosicionesActualesComoAnteriores();
-
         const pros = await query(
-            `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante,
-                    r.goles_local AS real_local, r.goles_visitante AS real_visitante
+            `SELECT p.id_usuario, p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
+                    r.goles_local AS "RealLocal", r.goles_visitante AS "RealVisitante"
              FROM pronosticos p INNER JOIN resultados_reales r ON p.partido_id=r.partido_id`
         );
 
-        const todosLosUsuarios = await query(`SELECT id_usuario FROM usuarios WHERE activo=TRUE`);
+        const todosUsers = await query(`SELECT id_usuario FROM usuarios WHERE activo=true`);
         const mapaPuntos = {}, mapaAciertos = {};
-        todosLosUsuarios.rows.forEach(u => {
-            mapaPuntos[u.id_usuario] = 0;
-            mapaAciertos[u.id_usuario] = 0;
-        });
+        todosUsers.forEach(u => { mapaPuntos[u.id_usuario]=0; mapaAciertos[u.id_usuario]=0; });
 
-        pros.rows.forEach(row => {
+        pros.forEach(row => {
             const id = row.id_usuario;
-            if (row.pro_local===row.real_local && row.pro_visitante===row.real_visitante) { 
-                mapaPuntos[id]+=5; 
-                mapaAciertos[id]+=1; 
-            }
-            else if (row.pro_local===row.pro_visitante && row.real_local===row.real_visitante) { 
-                mapaPuntos[id]+=1; 
-                mapaAciertos[id]+=1; 
-            }
-            else if ((row.pro_local>row.pro_visitante&&row.real_local>row.real_visitante)||(row.pro_local<row.pro_visitante&&row.real_local<row.real_visitante)) { 
-                mapaPuntos[id]+=3; 
-                mapaAciertos[id]+=1; 
-            }
+            if (row.ProLocal===row.RealLocal && row.ProVisitante===row.RealVisitante) { mapaPuntos[id]+=5; mapaAciertos[id]+=1; }
+            else if (row.ProLocal===row.ProVisitante && row.RealLocal===row.RealVisitante) { mapaPuntos[id]+=1; mapaAciertos[id]+=1; }
+            else if ((row.ProLocal>row.ProVisitante&&row.RealLocal>row.RealVisitante)||(row.ProLocal<row.ProVisitante&&row.RealLocal<row.RealVisitante)) { mapaPuntos[id]+=3; mapaAciertos[id]+=1; }
         });
 
-        const campeonReal = await query(`SELECT * FROM resultado_campeon ORDER BY id_resultado DESC LIMIT 1`);
-        if (campeonReal.rows.length > 0) {
-            const { seleccion_campeon, goles_local: cRL, goles_visitante: cRV } = campeonReal.rows[0];
+        const campeon = await query(
+            `SELECT * FROM resultado_campeon ORDER BY id_resultado DESC LIMIT 1`
+        );
+        if (campeon.length > 0) {
+            const { seleccion_campeon, goles_local:cRL, goles_visitante:cRV } = campeon[0];
             const prosCampeon = await query(`SELECT * FROM pronosticos_campeon`);
-            prosCampeon.rows.forEach(pc => {
-                if (!mapaPuntos[pc.id_usuario]) mapaPuntos[pc.id_usuario] = 0;
+            prosCampeon.forEach(pc => {
+                if (!mapaPuntos[pc.id_usuario]) mapaPuntos[pc.id_usuario]=0;
                 if (pc.seleccion_campeon.toLowerCase()===seleccion_campeon.toLowerCase() && pc.goles_local===cRL && pc.goles_visitante===cRV) mapaPuntos[pc.id_usuario]+=25;
                 else if (pc.seleccion_campeon.toLowerCase()===seleccion_campeon.toLowerCase()) mapaPuntos[pc.id_usuario]+=15;
             });
@@ -516,7 +429,7 @@ router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
 
         for (const id in mapaPuntos) {
             await query(
-                `INSERT INTO puntajes (id_usuario, puntos_totales) VALUES ($1, $2)
+                `INSERT INTO puntajes (id_usuario, puntos_totales) VALUES ($1,$2)
                  ON CONFLICT (id_usuario) DO UPDATE SET puntos_totales=$2`,
                 [parseInt(id), mapaPuntos[id]]
             );
@@ -529,69 +442,28 @@ router.post('/calcular-puntos', validarTokenAdmin, async (req, res) => {
     }
 });
 
-async function obtenerTablaGeneralRankings() {
-    const result = await query(`
-        SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre", u.foto_url AS "FotoUrl", u.correo AS "Correo",
-               COALESCE(p.puntos_totales,0) AS "Puntos",
-               COALESCE(p.posicion_anterior,1) AS "PosicionAnterior",
-               (SELECT COUNT(*) FROM pronosticos pr WHERE pr.id_usuario=u.id_usuario) AS "Predicciones",
-               (SELECT COUNT(*) FROM pronosticos pr
-                INNER JOIN resultados_reales rr ON pr.partido_id=rr.partido_id
-                WHERE pr.id_usuario=u.id_usuario AND (
-                    (pr.goles_local=rr.goles_local AND pr.goles_visitante=rr.goles_visitante) OR
-                    (pr.goles_local>pr.goles_visitante AND rr.goles_local>rr.goles_visitante) OR
-                    (pr.goles_local<pr.goles_visitante AND rr.goles_local<rr.goles_visitante) OR
-                    (pr.goles_local=pr.goles_visitante AND rr.goles_local=rr.goles_visitante)
-                )) AS "Aciertos"
-        FROM usuarios u
-        LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
-        WHERE u.activo=TRUE AND u.id_usuario != 1
-        ORDER BY "Puntos" DESC, "Aciertos" DESC, u.nombre ASC
-    `);
-
-    const rows = result.rows;
-    let rank = 1;
-    for (let i = 0; i < rows.length; i++) {
-        if (i > 0) {
-            const prev = rows[i - 1];
-            const curr = rows[i];
-            if (curr.Puntos !== prev.Puntos || curr.Aciertos !== prev.Aciertos) {
-                rank = i + 1;
-            }
-        }
-        rows[i].PosicionReal = rank;
-        rows[i].Posicion = rank;
-        rows[i].posicion = rank;
-        rows[i].id_usuario = rows[i].IdUsuario;
-        rows[i].nombre = rows[i].Nombre;
-        rows[i].correo = rows[i].Correo;
-        rows[i].puntos = rows[i].Puntos;
-        rows[i].PosicionAnterior = rows[i].PosicionAnterior;
-    }
-    return rows;
-}
-
-async function guardarPosicionesActualesComoAnteriores() {
-    try {
-        const rankingActual = await obtenerTablaGeneralRankings();
-        for (const usuario of rankingActual) {
-            await query(
-                `INSERT INTO puntajes (id_usuario, posicion_anterior) VALUES ($1, $2)
-                 ON CONFLICT (id_usuario) DO UPDATE SET posicion_anterior=$2`,
-                [parseInt(usuario.IdUsuario), usuario.PosicionReal]
-            );
-        }
-        console.log('✅ Posiciones actuales guardadas como anteriores en la base de datos.');
-    } catch (error) {
-        console.error('❌ Error al guardar posiciones actuales como anteriores:', error);
-    }
-}
-
 // ─── TABLA GENERAL ────────────────────────────────────────────────────────────
 router.get('/tabla-general', async (req, res) => {
     try {
-        const ranking = await obtenerTablaGeneralRankings();
-        return res.json({ ok: true, ranking });
+        const rows = await query(
+            `SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre", u.foto_url AS "FotoUrl",
+                    COALESCE(p.puntos_totales,0) AS "Puntos",
+                    DENSE_RANK() OVER (ORDER BY COALESCE(p.puntos_totales,0) DESC) AS "PosicionReal",
+                    (SELECT COUNT(*) FROM pronosticos pr WHERE pr.id_usuario=u.id_usuario) AS "Predicciones",
+                    (SELECT COUNT(*) FROM pronosticos pr
+                     INNER JOIN resultados_reales rr ON pr.partido_id=rr.partido_id
+                     WHERE pr.id_usuario=u.id_usuario AND (
+                         (pr.goles_local=rr.goles_local AND pr.goles_visitante=rr.goles_visitante) OR
+                         (pr.goles_local>pr.goles_visitante AND rr.goles_local>rr.goles_visitante) OR
+                         (pr.goles_local<pr.goles_visitante AND rr.goles_local<rr.goles_visitante) OR
+                         (pr.goles_local=pr.goles_visitante AND rr.goles_local=rr.goles_visitante)
+                     )) AS "Aciertos"
+             FROM usuarios u
+             LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
+             WHERE u.activo=true AND u.id_usuario != 1
+             ORDER BY "Puntos" DESC, "Aciertos" DESC, u.nombre ASC`
+        );
+        return res.json({ ok: true, ranking: rows });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -604,26 +476,29 @@ router.get('/mis-resultados/:idUsuario', validarTokenUsuario, async (req, res) =
         const idUsuario = parseInt(req.params.idUsuario);
 
         const result = await query(
-            `SELECT p.partido_id, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante,
-                    r.goles_local AS real_local, r.goles_visitante AS real_visitante
+            `SELECT p.partido_id, p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
+                    r.goles_local AS "RealLocal", r.goles_visitante AS "RealVisitante"
              FROM pronosticos p LEFT JOIN resultados_reales r ON p.partido_id=r.partido_id
              WHERE p.id_usuario=$1`,
             [idUsuario]
         );
 
-        const ranking = await obtenerTablaGeneralRankings();
-        const miPos = ranking.find(u => u.IdUsuario === idUsuario);
+        const rankingQ = await query(
+            `SELECT id_usuario, DENSE_RANK() OVER (ORDER BY COALESCE(puntos_totales,0) DESC) AS posicion
+             FROM puntajes`
+        );
+        const miPos = rankingQ.find(u => u.id_usuario === idUsuario);
 
         let exactos=0, correctos=0, fallados=0, pendientes=0, puntos=0;
-        const historial = result.rows.map(row => {
+        const historial = result.map(row => {
             let pts=0, estado='Pendiente';
-            if (row.real_local===null) { pendientes++; }
-            else if (row.pro_local===row.real_local&&row.pro_visitante===row.real_visitante) { exactos++; pts=5; estado='Exacto'; }
-            else if (row.pro_local===row.pro_visitante&&row.real_local===row.real_visitante) { correctos++; pts=1; estado='Acierto'; }
-            else if ((row.pro_local>row.pro_visitante&&row.real_local>row.real_visitante)||(row.pro_local<row.pro_visitante&&row.real_local<row.real_visitante)) { correctos++; pts=3; estado='Acierto'; }
+            if (row.RealLocal===null) { pendientes++; }
+            else if (row.ProLocal===row.RealLocal&&row.ProVisitante===row.RealVisitante) { exactos++; pts=5; estado='Exacto'; }
+            else if (row.ProLocal===row.ProVisitante&&row.RealLocal===row.RealVisitante) { correctos++; pts=1; estado='Acierto'; }
+            else if ((row.ProLocal>row.ProVisitante&&row.RealLocal>row.RealVisitante)||(row.ProLocal<row.ProVisitante&&row.RealLocal<row.RealVisitante)) { correctos++; pts=3; estado='Acierto'; }
             else { fallados++; estado='Falló'; }
             puntos+=pts;
-            return { partidoId:row.partido_id, pronostico:`${row.pro_local} - ${row.pro_visitante}`, resultadoReal:row.real_local!==null?`${row.real_local} - ${row.real_visitante}`:'Pendiente', puntos:pts, estado };
+            return { partidoId:row.partido_id, pronostico:`${row.ProLocal} - ${row.ProVisitante}`, resultadoReal:row.RealLocal!==null?`${row.RealLocal} - ${row.RealVisitante}`:'Pendiente', puntos:pts, estado };
         });
 
         const completados = exactos+correctos+fallados;
@@ -645,65 +520,44 @@ router.get('/mis-resultados/:idUsuario', validarTokenUsuario, async (req, res) =
 
 // ─── CAMPEÓN ──────────────────────────────────────────────────────────────────
 router.post('/campeon', validarTokenUsuario, async (req, res) => {
-    let idUsuario = null;
-    let seleccion = null;
-    let gl = null;
-    let gv = null;
+    let idUsuario=null, seleccion=null, gl=null, gv=null;
     try {
-        const DEADLINE_CAMPEON = new Date("2026-06-11T11:00:00 GMT-0600").getTime();
+        const DEADLINE = new Date('2026-06-11T13:00:00 GMT-0600').getTime();
         const body = req.body;
-        idUsuario = body?.idUsuario;
-        seleccion = body?.seleccionCampeon;
-        gl = body?.golesLocal;
-        gv = body?.golesVisitante;
+        idUsuario = body?.idUsuario; seleccion = body?.seleccionCampeon; gl = body?.golesLocal; gv = body?.golesVisitante;
 
-        if (Date.now() >= DEADLINE_CAMPEON) {
+        if (Date.now() >= DEADLINE) {
             const errMsg = '⛔ El pronóstico de campeón ya está bloqueado.';
-            await registrarLogActividad({
-                idUsuario,
-                accion: 'guardar_campeon',
-                detalle: `Intento Campeón: ${seleccion} (${gl} - ${gv})`,
-                exito: false,
-                errorMessage: errMsg
-            });
+            await registrarLogActividad({ idUsuario, accion:'guardar_campeon', detalle:`Intento: ${seleccion} (${gl}-${gv})`, exito:false, errorMessage:errMsg });
             return res.status(403).json({ ok: false, message: errMsg });
         }
-        const { idUsuario: valId, seleccionCampeon, golesLocal, golesVisitante } = campeonSchema.parse(req.body);
+
+        const { idUsuario:valId, seleccionCampeon, golesLocal, golesVisitante } = campeonSchema.parse(req.body);
+
         await query(
             `INSERT INTO pronosticos_campeon (id_usuario, seleccion_campeon, goles_local, goles_visitante)
-             VALUES ($1, $2, $3, $4)
-             ON CONFLICT (id_usuario) DO UPDATE SET seleccion_campeon=$2, goles_local=$3, goles_visitante=$4, fecha_actualizacion=NOW()`,
+             VALUES ($1,$2,$3,$4)
+             ON CONFLICT (id_usuario)
+             DO UPDATE SET seleccion_campeon=$2, goles_local=$3, goles_visitante=$4, fecha_actualizacion=NOW()`,
             [valId, seleccionCampeon, golesLocal, golesVisitante]
         );
 
-        await registrarLogActividad({
-            idUsuario: valId,
-            accion: 'guardar_campeon',
-            detalle: `Campeón: ${seleccionCampeon} (${golesLocal} - ${golesVisitante})`,
-            exito: true
-        });
-
+        await registrarLogActividad({ idUsuario:valId, accion:'guardar_campeon', detalle:`Campeón: ${seleccionCampeon} (${golesLocal}-${golesVisitante})`, exito:true });
         return res.json({ ok: true, message: '🏆 Pronóstico de campeón guardado.' });
     } catch (error) {
-        await registrarLogActividad({
-            idUsuario,
-            accion: 'guardar_campeon',
-            detalle: `Intento Campeón: ${seleccion} (${gl} - ${gv})`,
-            exito: false,
-            errorMessage: error.message || 'Error al registrar campeón.'
-        });
+        await registrarLogActividad({ idUsuario, accion:'guardar_campeon', detalle:`Intento: ${seleccion} (${gl}-${gv})`, exito:false, errorMessage:error.message });
         return res.status(400).json({ ok: false, message: 'Error.' });
     }
 });
 
 router.get('/campeon/:idUsuario', validarTokenUsuario, async (req, res) => {
     try {
-        const result = await query(
+        const rows = await query(
             `SELECT seleccion_campeon AS "SeleccionCampeon", goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante"
              FROM pronosticos_campeon WHERE id_usuario=$1`,
             [parseInt(req.params.idUsuario)]
         );
-        return res.json({ ok: true, campeon: result.rows[0] || null });
+        return res.json({ ok: true, campeon: rows[0] || null });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
@@ -712,8 +566,12 @@ router.get('/campeon/:idUsuario', validarTokenUsuario, async (req, res) => {
 // ─── PAQUETES ────────────────────────────────────────────────────────────────
 router.get('/paquetes', async (req, res) => {
     try {
-        const result = await query(`SELECT id_paquete AS "IdPaquete", nombre AS "Nombre", precio AS "Precio", goles AS "Goles", max_partidos AS "MaxPartidos" FROM paquetes WHERE nombre='Premium'`);
-        return res.json({ ok: true, paquetes: result.rows });
+        const rows = await query(
+            `SELECT id_paquete AS "IdPaquete", nombre AS "Nombre", precio AS "Precio",
+                    goles AS "Goles", max_partidos AS "MaxPartidos"
+             FROM paquetes WHERE nombre='Premium'`
+        );
+        return res.json({ ok: true, paquetes: rows });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
@@ -725,24 +583,25 @@ router.post('/admin/activar-suscripcion', async (req, res) => {
         const { idUsuario, idPaquete, notas } = req.body;
         if (!idUsuario || !idPaquete) return res.status(400).json({ ok: false, message: 'Datos incompletos.' });
 
-        const paq = await query(`SELECT goles, nombre FROM paquetes WHERE id_paquete=$1`, [idPaquete]);
-        if (paq.rows.length === 0) return res.status(404).json({ ok: false, message: 'Paquete no encontrado.' });
+        const paq = await query(
+            `SELECT goles, nombre, precio FROM paquetes WHERE id_paquete=$1`,
+            [idPaquete]
+        );
+        if (paq.length === 0) return res.status(404).json({ ok: false, message: 'Paquete no encontrado.' });
 
-        const { goles, nombre } = paq.rows[0];
-        await query(`UPDATE suscripciones SET activa=FALSE WHERE id_usuario=$1 AND activa=TRUE`, [idUsuario]);
+        const { goles, nombre, precio } = paq[0];
+
+        await query(`UPDATE suscripciones SET activa=false WHERE id_usuario=$1 AND activa=true`, [idUsuario]);
         await query(
-            `INSERT INTO suscripciones (id_usuario, id_paquete, goles_restantes, notas) VALUES ($1, $2, $3, $4)`,
+            `INSERT INTO suscripciones (id_usuario,id_paquete,goles_restantes,notas) VALUES ($1,$2,$3,$4)`,
             [idUsuario, idPaquete, goles, notas || null]
         );
-
-        // Registrar en bolsa
-        const paqPrecio = await query(`SELECT precio FROM paquetes WHERE id_paquete=$1`, [idPaquete]);
         await query(
-            `INSERT INTO bolsa (id_usuario, monto, concepto) VALUES ($1, $2, $3)`,
-            [idUsuario, paqPrecio.rows[0].precio, `Paquete ${nombre}`]
+            `INSERT INTO bolsa (id_usuario,monto,concepto) VALUES ($1,$2,$3)`,
+            [idUsuario, precio, `Paquete ${nombre}`]
         );
 
-        return res.json({ ok: true, message: `✅ Paquete ${nombre} activado con ${goles} goles.` });
+        return res.json({ ok: true, message: `✅ Paquete ${nombre} activado.` });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -752,20 +611,20 @@ router.post('/admin/activar-suscripcion', async (req, res) => {
 // ─── ADMIN: USUARIOS CON SUSCRIPCIONES ───────────────────────────────────────
 router.get('/admin/usuarios-suscripciones', async (req, res) => {
     try {
-        const result = await query(`
-            SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre", u.correo AS "Correo", u.foto_url AS "FotoUrl",
-                   p.nombre AS "Paquete", p.id_paquete AS "IdPaquete",
-                   s.goles_restantes AS "GolesRestantes", p.goles AS "GolesIniciales",
-                   p.max_partidos AS "MaxPartidos", s.fecha_activacion AS "FechaActivacion", s.notas AS "Notas",
-                   CASE WHEN s.id_suscripcion IS NOT NULL THEN 1 ELSE 0 END AS "TieneSuscripcion",
-                   (SELECT COUNT(*) FROM partidos_desbloqueados pd WHERE pd.id_usuario=u.id_usuario) AS "PartidosDesbloqueados"
-            FROM usuarios u
-            LEFT JOIN suscripciones s ON s.id_usuario=u.id_usuario AND s.activa=TRUE
-            LEFT JOIN paquetes p ON p.id_paquete=s.id_paquete
-            WHERE u.activo=TRUE
-            ORDER BY u.nombre ASC
-        `);
-        return res.json({ ok: true, usuarios: result.rows });
+        const rows = await query(
+            `SELECT u.id_usuario AS "IdUsuario", u.nombre AS "Nombre", u.correo AS "Correo", u.foto_url AS "FotoUrl",
+                    p.nombre AS "Paquete", p.id_paquete AS "IdPaquete",
+                    s.goles_restantes AS "GolesRestantes", p.goles AS "GolesIniciales",
+                    p.max_partidos AS "MaxPartidos", s.fecha_activacion AS "FechaActivacion", s.notas AS "Notas",
+                    CASE WHEN s.id_suscripcion IS NOT NULL THEN 1 ELSE 0 END AS "TieneSuscripcion",
+                    (SELECT COUNT(*) FROM partidos_desbloqueados pd WHERE pd.id_usuario=u.id_usuario) AS "PartidosDesbloqueados"
+             FROM usuarios u
+             LEFT JOIN suscripciones s ON s.id_usuario=u.id_usuario AND s.activa=true
+             LEFT JOIN paquetes p ON p.id_paquete=s.id_paquete
+             WHERE u.activo=true
+             ORDER BY u.nombre ASC`
+        );
+        return res.json({ ok: true, usuarios: rows });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -778,30 +637,29 @@ router.post('/admin/registrar-recarga', async (req, res) => {
         const { idUsuario, goles, monto, nota } = req.body;
         if (!idUsuario || !goles || !monto) return res.status(400).json({ ok: false, message: 'Datos incompletos.' });
 
-        const result = await query(
-            `UPDATE suscripciones SET goles_restantes=goles_restantes+$1 WHERE id_usuario=$2 AND activa=TRUE RETURNING id_suscripcion`,
+        await query(
+            `UPDATE suscripciones SET goles_restantes=goles_restantes+$1
+             WHERE id_usuario=$2 AND activa=true`,
             [goles, idUsuario]
         );
-        if (result.rows.length === 0) return res.status(404).json({ ok: false, message: 'Sin suscripción activa.' });
-
         await query(
-            `INSERT INTO bolsa (id_usuario, monto, concepto) VALUES ($1, $2, $3)`,
+            `INSERT INTO bolsa (id_usuario,monto,concepto) VALUES ($1,$2,$3)`,
             [idUsuario, parseFloat(monto), nota || `Recarga ${goles} goles`]
         );
 
-        return res.json({ ok: true, message: `✅ ${goles} Goles agregados y $${monto} MXN registrados.` });
+        return res.json({ ok: true, message: `✅ ${goles} Goles agregados.` });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
 });
 
-// ─── ADMIN: GUARDAR CAMPEÓN REAL ─────────────────────────────────────────────
+// ─── ADMIN: CAMPEÓN REAL ─────────────────────────────────────────────────────
 router.post('/admin/campeon-real', async (req, res) => {
     try {
         const { seleccionCampeon, golesLocal, golesVisitante } = req.body;
         await query(
-            `INSERT INTO resultado_campeon (seleccion_campeon, goles_local, goles_visitante) VALUES ($1, $2, $3)`,
+            `INSERT INTO resultado_campeon (seleccion_campeon,goles_local,goles_visitante) VALUES ($1,$2,$3)`,
             [seleccionCampeon, golesLocal, golesVisitante]
         );
         return res.json({ ok: true, message: '🏆 Campeón real registrado.' });
@@ -810,71 +668,133 @@ router.post('/admin/campeon-real', async (req, res) => {
     }
 });
 
+// ─── HELPER CONFIG BOLSA ─────────────────────────────────────────────────────
+async function getConfigBolsa() {
+    const rows = await query(`SELECT clave, valor FROM config_bolsa`);
+    const cfg  = {};
+    rows.forEach(r => { cfg[r.clave] = parseFloat(r.valor); });
+    return {
+        pctAdmin:   cfg.PctAdmin   ?? 15,
+        pctPremio1: cfg.PctPremio1 ?? 50,
+        pctPremio2: cfg.PctPremio2 ?? 30,
+        pctPremio3: cfg.PctPremio3 ?? 20,
+    };
+}
+
 // ─── ADMIN: BOLSA ────────────────────────────────────────────────────────────
 router.get('/admin/bolsa', async (req, res) => {
     try {
-        const insResult = await query(
-            `SELECT COALESCE(SUM(b.monto),0) AS total_recaudado, COUNT(DISTINCT s.id_usuario) AS total_participantes
-             FROM suscripciones s INNER JOIN bolsa b ON b.id_usuario=s.id_usuario WHERE s.activa=TRUE`
+        const [insRows, cfg] = await Promise.all([
+            query(`SELECT COALESCE(SUM(b.monto),0) AS total_recaudado,
+                          COUNT(DISTINCT s.id_usuario) AS total_participantes
+                   FROM suscripciones s INNER JOIN bolsa b ON b.id_usuario=s.id_usuario
+                   WHERE s.activa=true`),
+            getConfigBolsa()
+        ]);
+
+        const totalRecaudado     = parseFloat(insRows[0].total_recaudado) || 0;
+        const totalParticipantes = parseInt(insRows[0].total_participantes) || 0;
+        const bolsaPremios       = totalRecaudado * ((100 - cfg.pctAdmin) / 100);
+        const cuotaAdmin         = totalRecaudado * (cfg.pctAdmin / 100);
+        const premio1            = bolsaPremios * (cfg.pctPremio1 / 100);
+        const premio2            = bolsaPremios * (cfg.pctPremio2 / 100);
+        const premio3            = bolsaPremios * (cfg.pctPremio3 / 100);
+
+        const ranking = await query(
+            `SELECT id_usuario AS "IdUsuario", nombre AS "Nombre",
+                    COALESCE(puntos_totales,0) AS "Puntos",
+                    DENSE_RANK() OVER (ORDER BY COALESCE(puntos_totales,0) DESC) AS "Posicion"
+             FROM usuarios u LEFT JOIN puntajes p USING(id_usuario)
+             WHERE u.activo=true
+             ORDER BY "Puntos" DESC LIMIT 5`
         );
 
-        const configBolsaResult = await query(`SELECT clave, valor FROM config_bolsa`);
-        const configBolsa = {};
-        configBolsaResult.rows.forEach(r => {
-            configBolsa[r.clave] = parseFloat(r.valor);
-        });
+        const pos1 = ranking.filter(u => u.Posicion === 1);
+        const pos2 = ranking.filter(u => u.Posicion === 2);
+        const pos3 = ranking.filter(u => u.Posicion === 3);
 
-        const pctAdmin   = configBolsa['PctAdmin']   ?? 15.00;
-        const pctPremio1 = configBolsa['PctPremio1'] ?? 50.00;
-        const pctPremio2 = configBolsa['PctPremio2'] ?? 30.00;
-        const pctPremio3 = configBolsa['PctPremio3'] ?? 20.00;
+        const combinar = (arr, premios) => {
+            const t = premios.reduce((a, b) => a + b, 0);
+            return arr.map(u => ({ ...u, montoPremio: t/arr.length, porcentaje: ((t/bolsaPremios)*100/arr.length).toFixed(2) }));
+        };
 
-        const totalRecaudado     = parseFloat(insResult.rows[0].total_recaudado) || 0;
-        const totalParticipantes = parseInt(insResult.rows[0].total_participantes) || 0;
-        const cuotaAdmin         = totalRecaudado * (pctAdmin / 100);
-        const bolsaPremios       = totalRecaudado - cuotaAdmin;
-        const premio1 = bolsaPremios * (pctPremio1 / 100);
-        const premio2 = bolsaPremios * (pctPremio2 / 100);
-        const premio3 = bolsaPremios * (pctPremio3 / 100);
-
-        const ranking = await obtenerTablaGeneralRankings();
-        const groups = {};
-        ranking.forEach(u => {
-            if (!groups[u.Posicion]) groups[u.Posicion] = [];
-            groups[u.Posicion].push(u);
-        });
-
-        const sortedRanks = Object.keys(groups).map(Number).sort((a,b) => a - b);
-        const prizes = [premio1, premio2, premio3];
         let distribucion = [];
+        if      (pos1.length > 1) distribucion = [...combinar(pos1,[premio1,premio2]),...combinar(pos2.length?pos2:pos3,[premio3])];
+        else if (pos2.length > 1) distribucion = [...combinar(pos1,[premio1]),...combinar(pos2,[premio2,premio3])];
+        else if (pos3.length > 1) distribucion = [...combinar(pos1,[premio1]),...combinar(pos2,[premio2]),...combinar(pos3,[premio3])];
+        else                      distribucion = [
+            ...(pos1[0]?[{...pos1[0],montoPremio:premio1,porcentaje:cfg.pctPremio1.toFixed(2)}]:[]),
+            ...(pos2[0]?[{...pos2[0],montoPremio:premio2,porcentaje:cfg.pctPremio2.toFixed(2)}]:[]),
+            ...(pos3[0]?[{...pos3[0],montoPremio:premio3,porcentaje:cfg.pctPremio3.toFixed(2)}]:[]),
+        ];
 
-        let prizeIdx = 0;
-        for (const rk of sortedRanks) {
-            if (prizeIdx >= prizes.length) break;
-            const groupUsers = groups[rk];
-            const L = groupUsers.length;
-            const groupPrizes = prizes.slice(prizeIdx, prizeIdx + L);
-            prizeIdx += L;
+        return res.json({ ok:true, totalRecaudado, totalParticipantes, bolsaPremios, cuotaAdmin, premio1, premio2, premio3, distribucion, ranking, config:cfg });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error.' });
+    }
+});
 
-            if (groupPrizes.length === 0) break;
+// ─── ADMIN: GUARDAR CONFIG BOLSA ─────────────────────────────────────────────
+router.post('/admin/config-bolsa', async (req, res) => {
+    try {
+        const { pctAdmin, pctPremio1, pctPremio2, pctPremio3 } = req.body;
+        const vals = [pctAdmin, pctPremio1, pctPremio2, pctPremio3];
+        if (vals.some(v => v === undefined || v === null || isNaN(v)))
+            return res.status(400).json({ ok: false, message: 'Todos los porcentajes son requeridos.' });
+        if (vals.some(v => v < 0 || v > 100))
+            return res.status(400).json({ ok: false, message: 'Los porcentajes deben estar entre 0 y 100.' });
+        if (pctAdmin > 50)
+            return res.status(400).json({ ok: false, message: '⛔ La cuota admin no puede superar el 50%.' });
+        const suma = parseFloat(pctPremio1)+parseFloat(pctPremio2)+parseFloat(pctPremio3);
+        if (Math.abs(suma - 100) > 0.01)
+            return res.status(400).json({ ok: false, message: `⛔ Los premios deben sumar 100% (actualmente ${suma.toFixed(2)}%).` });
 
-            const sumPrizes = groupPrizes.reduce((a,b) => a + b, 0);
-            const prizePerUser = sumPrizes / L;
-            const pctPerUser = ((sumPrizes / bolsaPremios) * 100 / L).toFixed(2);
-
-            groupUsers.forEach(u => {
-                distribucion.push({
-                    IdUsuario: u.IdUsuario,
-                    Nombre: u.Nombre,
-                    Puntos: u.Puntos,
-                    Posicion: u.Posicion,
-                    montoPremio: prizePerUser,
-                    porcentaje: pctPerUser
-                });
-            });
+        const updates = [['PctAdmin',pctAdmin],['PctPremio1',pctPremio1],['PctPremio2',pctPremio2],['PctPremio3',pctPremio3]];
+        for (const [clave, valor] of updates) {
+            await query(
+                `INSERT INTO config_bolsa (clave, valor) VALUES ($1,$2)
+                 ON CONFLICT (clave) DO UPDATE SET valor=$2, fecha_actualizacion=NOW()`,
+                [clave, parseFloat(valor)]
+            );
         }
 
-        return res.json({ ok:true, totalRecaudado, totalParticipantes, bolsaPremios, cuotaAdmin, premio1, premio2, premio3, distribucion, ranking });
+        return res.json({ ok: true, message: '✅ Porcentajes actualizados correctamente.' });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error al guardar configuración.' });
+    }
+});
+
+// ─── PÚBLICO: BOLSA PARA USUARIOS ────────────────────────────────────────────
+router.get('/bolsa-premios', async (req, res) => {
+    try {
+        const [insRows, cfg] = await Promise.all([
+            query(`SELECT COALESCE(SUM(b.monto),0) AS total_recaudado,
+                          COUNT(DISTINCT s.id_usuario) AS total_participantes
+                   FROM suscripciones s INNER JOIN bolsa b ON b.id_usuario=s.id_usuario
+                   WHERE s.activa=true`),
+            getConfigBolsa()
+        ]);
+
+        const totalRecaudado     = parseFloat(insRows[0].total_recaudado) || 0;
+        const totalParticipantes = parseInt(insRows[0].total_participantes) || 0;
+        const bolsaPremios       = totalRecaudado * ((100 - cfg.pctAdmin) / 100);
+        const premio1            = bolsaPremios * (cfg.pctPremio1 / 100);
+        const premio2            = bolsaPremios * (cfg.pctPremio2 / 100);
+        const premio3            = bolsaPremios * (cfg.pctPremio3 / 100);
+
+        const ranking = await query(
+            `SELECT u.nombre AS "Nombre", u.foto_url AS "FotoUrl",
+                    COALESCE(p.puntos_totales,0) AS "Puntos",
+                    DENSE_RANK() OVER (ORDER BY COALESCE(p.puntos_totales,0) DESC) AS "Posicion"
+             FROM usuarios u LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
+             WHERE u.activo=true AND u.id_usuario <> 1
+             ORDER BY "Puntos" DESC LIMIT 3`
+        );
+
+        return res.json({ ok:true, totalRecaudado, totalParticipantes, bolsaPremios, premio1, premio2, premio3,
+            pctPremio1:cfg.pctPremio1, pctPremio2:cfg.pctPremio2, pctPremio3:cfg.pctPremio3, ranking });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -884,19 +804,18 @@ router.get('/admin/bolsa', async (req, res) => {
 // ─── ESTADO QUINIELA ──────────────────────────────────────────────────────────
 router.get('/estado-quiniela', async (req, res) => {
     try {
-        const config  = await query(`SELECT clave, valor FROM config_quiniela`);
-        const estado  = {};
-        config.rows.forEach(r => { estado[r.clave] = r.valor; });
+        const rows = await query(`SELECT clave, valor FROM config_quiniela`);
+        const estado = {};
+        rows.forEach(r => { estado[r.clave] = r.valor; });
 
         let ganadores = [];
         if (estado.GanadoresRevelados === '1') {
-            const result = await query(
+            ganadores = await query(
                 `SELECT g.posicion AS "Posicion", g.puntos AS "Puntos", g.monto_premio AS "MontoPremio",
                         g.porcentaje_premio AS "PorcentajePremio", u.nombre AS "Nombre", u.foto_url AS "FotoUrl"
                  FROM ganadores_finales g INNER JOIN usuarios u ON g.id_usuario=u.id_usuario
                  ORDER BY g.posicion ASC, g.monto_premio DESC`
             );
-            ganadores = result.rows;
         }
         return res.json({ ok: true, ...estado, ganadores });
     } catch (error) {
@@ -908,92 +827,64 @@ router.get('/estado-quiniela', async (req, res) => {
 router.post('/admin/revelar-ganadores', async (req, res) => {
     try {
         const config = await query(`SELECT valor FROM config_quiniela WHERE clave='GanadoresRevelados'`);
-        if (config.rows[0]?.valor === '1')
-            return res.status(409).json({ ok: false, message: '⚠️ Los ganadores ya fueron revelados.' });
+        if (config[0]?.valor === '1') return res.status(409).json({ ok: false, message: '⚠️ Ganadores ya revelados.' });
 
-        const configBolsaResult = await query(`SELECT clave, valor FROM config_bolsa`);
-        const configBolsa = {};
-        configBolsaResult.rows.forEach(r => {
-            configBolsa[r.clave] = parseFloat(r.valor);
-        });
+        const bolsaR = await query(`SELECT COALESCE(SUM(monto),0) AS total FROM bolsa`);
+        const cfg    = await getConfigBolsa();
+        const totalRecaudado = parseFloat(bolsaR[0].total) || 0;
+        const bolsaPremios   = totalRecaudado * ((100 - cfg.pctAdmin) / 100);
+        const premio1=bolsaPremios*(cfg.pctPremio1/100), premio2=bolsaPremios*(cfg.pctPremio2/100), premio3=bolsaPremios*(cfg.pctPremio3/100);
 
-        const pctAdmin   = configBolsa['PctAdmin']   ?? 15.00;
-        const pctPremio1 = configBolsa['PctPremio1'] ?? 50.00;
-        const pctPremio2 = configBolsa['PctPremio2'] ?? 30.00;
-        const pctPremio3 = configBolsa['PctPremio3'] ?? 20.00;
+        const ranking = await query(
+            `SELECT u.id_usuario, u.nombre, COALESCE(p.puntos_totales,0) AS puntos,
+                    DENSE_RANK() OVER (ORDER BY COALESCE(p.puntos_totales,0) DESC) AS posicion
+             FROM usuarios u LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
+             WHERE u.activo=true AND u.id_usuario<>1`
+        );
 
-        const bolsaR  = await query(`SELECT COALESCE(SUM(monto),0) AS total FROM bolsa`);
-        const totalRecaudado = parseFloat(bolsaR.rows[0].total) || 0;
-        const cuotaAdmin         = totalRecaudado * (pctAdmin / 100);
-        const bolsaPremios       = totalRecaudado - cuotaAdmin;
-        const premio1 = bolsaPremios * (pctPremio1 / 100);
-        const premio2 = bolsaPremios * (pctPremio2 / 100);
-        const premio3 = bolsaPremios * (pctPremio3 / 100);
-
-        const ranking = await obtenerTablaGeneralRankings();
-        const groups = {};
-        ranking.forEach(u => {
-            if (!groups[u.Posicion]) groups[u.Posicion] = [];
-            groups[u.Posicion].push(u);
-        });
-
-        const sortedRanks = Object.keys(groups).map(Number).sort((a,b) => a - b);
-        const prizes = [premio1, premio2, premio3];
-        let distribucion = [];
-
-        let prizeIdx = 0;
-        for (const rk of sortedRanks) {
-            if (prizeIdx >= prizes.length) break;
-            const groupUsers = groups[rk];
-            const L = groupUsers.length;
-            const groupPrizes = prizes.slice(prizeIdx, prizeIdx + L);
-            prizeIdx += L;
-
-            if (groupPrizes.length === 0) break;
-
-            const sumPrizes = groupPrizes.reduce((a,b) => a + b, 0);
-            const prizePerUser = sumPrizes / L;
-            const pctPerUser = ((sumPrizes / bolsaPremios) * 100 / L).toFixed(2);
-
-            groupUsers.forEach(u => {
-                distribucion.push({
-                    IdUsuario: u.IdUsuario,
-                    Nombre: u.Nombre,
-                    Puntos: u.Puntos,
-                    Posicion: u.Posicion,
-                    montoPremio: prizePerUser,
-                    porcentaje: pctPerUser
-                });
-            });
+        const groups={};
+        ranking.forEach(u=>{ if(!groups[u.puntos]) groups[u.puntos]=[]; groups[u.puntos].push(u); });
+        const sortedPoints=Object.keys(groups).map(Number).sort((a,b)=>b-a);
+        const prizes=[premio1,premio2,premio3];
+        let distribucion=[], prizeIdx=0;
+        for (const pts of sortedPoints) {
+            if (prizeIdx>=prizes.length) break;
+            const gUsers=groups[pts], L=gUsers.length;
+            const gPrizes=prizes.slice(prizeIdx,prizeIdx+L);
+            prizeIdx+=L;
+            if (!gPrizes.length) break;
+            const sumP=gPrizes.reduce((a,b)=>a+b,0);
+            gUsers.forEach(u=>distribucion.push({...u,montoPremio:sumP/L,porcentaje:((sumP/bolsaPremios)*100/L).toFixed(2)}));
         }
 
         for (const g of distribucion) {
             await query(
-                `INSERT INTO ganadores_finales (id_usuario,posicion,puntos,porcentaje_premio,monto_premio) VALUES ($1,$2,$3,$4,$5)`,
-                [g.IdUsuario, g.Posicion, g.Puntos, parseFloat(g.porcentaje), g.montoPremio]
+                `INSERT INTO ganadores_finales (id_usuario,posicion,puntos,porcentaje_premio,monto_premio)
+                 VALUES ($1,$2,$3,$4,$5)`,
+                [g.id_usuario, g.posicion, g.puntos, parseFloat(g.porcentaje), g.montoPremio]
             );
         }
 
         await query(`UPDATE config_quiniela SET valor='1' WHERE clave='GanadoresRevelados'`);
 
-        const todosResult = await obtenerTablaGeneralRankings();
-        const todos = { rows: todosResult.filter(u => u.Correo && u.Correo !== '') };
+        const todos = await query(
+            `SELECT u.id_usuario, u.nombre, u.correo, COALESCE(p.puntos_totales,0) AS puntos,
+                    DENSE_RANK() OVER (ORDER BY COALESCE(p.puntos_totales,0) DESC) AS posicion
+             FROM usuarios u LEFT JOIN puntajes p ON u.id_usuario=p.id_usuario
+             WHERE u.activo=true AND u.correo IS NOT NULL AND u.correo!=''`
+        );
 
-        const fmt = n => `$${Number(n).toLocaleString('es-MX',{minimumFractionDigits:2})} MXN`;
-        const medallas = {1:'🥇',2:'🥈',3:'🥉'};
-        const tablaHTML = distribucion.map(g=>`<tr><td>${medallas[g.Posicion]}</td><td>${g.Nombre}</td><td>${g.Puntos} pts</td><td style="color:#2ecc71;">${fmt(g.montoPremio)}</td></tr>`).join('');
+        const fmt=n=>`$${Number(n).toLocaleString('es-MX',{minimumFractionDigits:2})} MXN`;
+        const medallas={1:'🥇',2:'🥈',3:'🥉'};
+        const tablaHTML=distribucion.map(g=>`<tr><td>${medallas[g.posicion]}</td><td>${g.nombre}</td><td>${g.puntos} pts</td><td>${fmt(g.montoPremio)}</td></tr>`).join('');
 
-        for (const u of todos.rows) {
-            const ganadorInfo = distribucion.find(g => g.IdUsuario === u.id_usuario);
-            const html = `<div style="font-family:sans-serif;max-width:600px;background:#05101a;color:white;border-radius:16px;overflow:hidden;">
-                <div style="background:linear-gradient(135deg,#f1c40f,#d4ac0d);padding:2rem;text-align:center;"><h1 style="color:#000;">🏆 ¡El Mundial ha terminado!</h1></div>
-                ${ganadorInfo?`<div style="padding:1.5rem;text-align:center;"><p style="font-size:3rem;">${medallas[ganadorInfo.Posicion]}</p><h2 style="color:#2ecc71;">¡Felicidades ${u.nombre}!</h2><p>Premio: <strong style="color:#f1c40f;font-size:1.5rem;">${fmt(ganadorInfo.montoPremio)}</strong></p></div>`:`<div style="padding:1.5rem;text-align:center;"><p>Hola ${u.nombre}, terminaste en ${u.posicion}° con ${u.puntos} pts. ¡Gracias por participar!</p></div>`}
-                <div style="padding:1rem;"><table style="width:100%;"><thead><tr><th>Pos</th><th>Nombre</th><th>Puntos</th><th>Premio</th></tr></thead><tbody>${tablaHTML}</tbody></table></div>
-                <div style="padding:1rem;text-align:center;"><small>Quiniela Mundial 2026 — torreslab</small></div></div>`;
-            enviarCorreoResultado({ correo:u.correo, nombre:u.nombre, asunto:'🏆 Resultados Quiniela Mundial 2026', htmlPersonalizado:html, idUsuario:u.id_usuario }).catch(console.error);
+        for (const u of todos) {
+            const gi=distribucion.find(g=>g.id_usuario===u.id_usuario);
+            const html=`<div style="font-family:sans-serif;max-width:600px;background:#05101a;color:white;border-radius:16px;overflow:hidden;"><div style="background:linear-gradient(135deg,#f1c40f,#d4ac0d);padding:2rem;text-align:center;"><h1 style="color:#000;">🏆 ¡El Mundial ha terminado!</h1></div>${gi?`<div style="padding:1.5rem;text-align:center;"><p style="font-size:3rem;">${medallas[gi.posicion]}</p><h2 style="color:#2ecc71;">¡Felicidades ${u.nombre}!</h2><p>Premio: <strong style="color:#f1c40f;">${fmt(gi.montoPremio)}</strong></p></div>`:`<div style="padding:1.5rem;text-align:center;"><p>Hola ${u.nombre}, terminaste en ${u.posicion}° con ${u.puntos} pts.</p></div>`}<div style="padding:1rem;"><table style="width:100%;"><thead><tr><th>Pos</th><th>Nombre</th><th>Puntos</th><th>Premio</th></tr></thead><tbody>${tablaHTML}</tbody></table></div><div style="padding:1rem;text-align:center;"><small>Quiniela Mundial 2026 — torreslab</small></div></div>`;
+            enviarCorreoResultado({ correo:u.correo, nombre:u.nombre, asunto:'🏆 Resultados Quiniela Mundial 2026', htmlPersonalizado:html }).catch(console.error);
         }
 
-        return res.json({ ok: true, message: `🏆 Ganadores revelados y correos enviados.`, distribucion });
+        return res.json({ ok:true, message:'🏆 Ganadores revelados y correos enviados.', distribucion });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error.' });
@@ -1003,13 +894,14 @@ router.post('/admin/revelar-ganadores', async (req, res) => {
 // ─── ADMIN: PENDIENTES ────────────────────────────────────────────────────────
 router.get('/admin/pendientes', async (req, res) => {
     try {
-        const result = await query(
-            `SELECT id_pendiente AS "IdPendiente", fixture_id AS "FixtureId", local_nombre AS "LocalNombre",
-                    visitante_nombre AS "VisitanteNombre", goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante",
+        const rows = await query(
+            `SELECT id_pendiente AS "IdPendiente", fixture_id AS "FixtureId",
+                    local_nombre AS "LocalNombre", visitante_nombre AS "VisitanteNombre",
+                    goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante",
                     fecha_partido AS "FechaPartido", validado AS "Validado", partido_id AS "PartidoId"
-             FROM resultados_pendientes WHERE validado=FALSE ORDER BY fecha_partido ASC`
+             FROM resultados_pendientes WHERE validado=false ORDER BY fecha_partido ASC`
         );
-        return res.json({ ok: true, pendientes: result.rows });
+        return res.json({ ok: true, pendientes: rows });
     } catch (error) {
         return res.status(500).json({ ok: false, message: 'Error.' });
     }
@@ -1018,52 +910,38 @@ router.get('/admin/pendientes', async (req, res) => {
 router.post('/admin/validar-pendiente', async (req, res) => {
     try {
         const { idPendiente, partidoId } = req.body;
-        const pendiente = await query(`SELECT * FROM resultados_pendientes WHERE id_pendiente=$1`, [idPendiente]);
-        if (pendiente.rows.length === 0) return res.status(404).json({ ok: false, message: 'No encontrado.' });
+        const pendiente = await query(
+            `SELECT * FROM resultados_pendientes WHERE id_pendiente=$1`,
+            [idPendiente]
+        );
+        if (pendiente.length === 0) return res.status(404).json({ ok: false, message: 'No encontrado.' });
 
-        const { goles_local, goles_visitante, local_nombre, visitante_nombre } = pendiente.rows[0];
+        const { goles_local:GolesLocal, goles_visitante:GolesVisitante, local_nombre:LocalNombre, visitante_nombre:VisitanteNombre } = pendiente[0];
 
         await query(
             `INSERT INTO resultados_reales (partido_id,goles_local,goles_visitante) VALUES ($1,$2,$3)
              ON CONFLICT (partido_id) DO UPDATE SET goles_local=$2, goles_visitante=$3`,
-            [partidoId, goles_local, goles_visitante]
+            [partidoId, GolesLocal, GolesVisitante]
         );
         await query(
-            `UPDATE resultados_pendientes SET validado=TRUE, fecha_validacion=NOW(), partido_id=$1 WHERE id_pendiente=$2`,
+            `UPDATE resultados_pendientes SET validado=true, fecha_validacion=NOW(), partido_id=$1
+             WHERE id_pendiente=$2`,
             [partidoId, idPendiente]
         );
 
-        // REGISTRAR LOG DE ACTIVIDAD
-        await registrarLogActividad({
-            idUsuario: 1, // Admin default ID
-            accion: 'marcador_final_registrado',
-            partidoId: partidoId,
-            detalle: `Se ha registrado el marcador final del partido #${partidoId}: ${local_nombre} ${goles_local} - ${goles_visitante} ${visitante_nombre}`,
-            exito: true
-        });
-
         const pros = await query(
-            `SELECT p.id_usuario, p.goles_local AS pro_local, p.goles_visitante AS pro_visitante, u.nombre, u.correo
+            `SELECT p.id_usuario, p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
+                    u.nombre AS "Nombre", u.correo AS "Correo"
              FROM pronosticos p INNER JOIN usuarios u ON p.id_usuario=u.id_usuario
              WHERE p.partido_id=$1 AND u.correo IS NOT NULL`,
             [partidoId]
         );
-        for (const pro of pros.rows) {
+        for (const pro of pros) {
             let puntos=0, estado='Falló';
-            if (pro.pro_local===goles_local && pro.pro_visitante===goles_visitante) { 
-                puntos=5; 
-                estado='Exacto'; 
-            }
-            else if (pro.pro_local===pro.pro_visitante && goles_local===goles_visitante) { 
-                puntos=1; 
-                estado='Acierto'; 
-            }
-            else if ((pro.pro_local>pro.pro_visitante && goles_local>goles_visitante) || 
-                     (pro.pro_local<pro.pro_visitante && goles_local<goles_visitante)) { 
-                puntos=3; 
-                estado='Acierto'; 
-            }
-            await enviarCorreoResultado({ correo:pro.correo, nombre:pro.nombre, local:local_nombre, visitante:visitante_nombre, golesLocal:goles_local, golesVisitante:goles_visitante, proLocal:pro.pro_local, proVisitante:pro.pro_visitante, puntos, estado, idUsuario:pro.id_usuario, partidoId });
+            if (pro.ProLocal===GolesLocal&&pro.ProVisitante===GolesVisitante) { puntos=5; estado='Exacto'; }
+            else if (pro.ProLocal===pro.ProVisitante&&GolesLocal===GolesVisitante) { puntos=1; estado='Acierto'; }
+            else if ((pro.ProLocal>pro.ProVisitante&&GolesLocal>GolesVisitante)||(pro.ProLocal<pro.ProVisitante&&GolesLocal<GolesVisitante)) { puntos=3; estado='Acierto'; }
+            enviarCorreoResultado({ correo:pro.Correo, nombre:pro.Nombre, local:LocalNombre, visitante:VisitanteNombre, golesLocal:GolesLocal, golesVisitante:GolesVisitante, proLocal:pro.ProLocal, proVisitante:pro.ProVisitante, puntos, estado }).catch(console.error);
         }
 
         return res.json({ ok: true, message: '✅ Resultado validado y correos enviados.' });
@@ -1085,102 +963,94 @@ router.post('/admin/rechazar-pendiente', async (req, res) => {
 // ─── ADMIN: EXPORTAR PRONÓSTICOS ─────────────────────────────────────────────
 router.get('/admin/exportar-pronosticos', async (req, res) => {
     try {
-        const result = await query(`
-            SELECT 
-                u.nombre AS "Usuario",
-                u.correo AS "Correo",
-                p.partido_id AS "Partido #",
-                p.goles_local AS "Pronóstico Local",
-                p.goles_visitante AS "Pronóstico Visitante",
-                COALESCE(CAST(r.goles_local AS TEXT), '-') AS "Resultado Local",
-                COALESCE(CAST(r.goles_visitante AS TEXT), '-') AS "Resultado Visitante",
-                pd.modificaciones_usadas AS "Modificaciones",
-                CASE
-                    WHEN r.goles_local IS NULL THEN 'Pendiente'
-                    WHEN p.goles_local = r.goles_local AND p.goles_visitante = r.goles_visitante THEN '5 — Exacto'
-                    WHEN r.goles_local = r.goles_visitante AND p.goles_local = p.goles_visitante THEN '1 — Empate correcto'
-                    WHEN (p.goles_local > p.goles_visitante AND r.goles_local > r.goles_visitante)
-                      OR (p.goles_local < p.goles_visitante AND r.goles_local < r.goles_visitante) THEN '3 — Ganador correcto'
-                    ELSE '0 — Falló'
-                END AS "Puntos",
-                COALESCE(pt.puntos_totales, 0) AS "Puntos Totales"
-            FROM pronosticos p
-            INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
-            LEFT JOIN resultados_reales r ON p.partido_id = r.partido_id
-            LEFT JOIN partidos_desbloqueados pd ON pd.id_usuario = p.id_usuario AND pd.partido_id = p.partido_id
-            LEFT JOIN puntajes pt ON pt.id_usuario = u.id_usuario
-            WHERE u.activo = TRUE
-            ORDER BY u.nombre ASC, p.partido_id ASC
-        `);
-        return res.json({ ok: true, pronosticos: result.rows });
+        const rows = await query(
+            `SELECT u.nombre AS "Usuario", u.correo AS "Correo",
+                    p.partido_id AS "Partido #",
+                    p.goles_local AS "Pronóstico Local", p.goles_visitante AS "Pronóstico Visitante",
+                    COALESCE(CAST(r.goles_local AS VARCHAR),'-') AS "Resultado Local",
+                    COALESCE(CAST(r.goles_visitante AS VARCHAR),'-') AS "Resultado Visitante",
+                    COALESCE(pd.modificaciones_usadas,0) AS "Modificaciones",
+                    CASE
+                        WHEN r.goles_local IS NULL THEN 'Pendiente'
+                        WHEN p.goles_local=r.goles_local AND p.goles_visitante=r.goles_visitante THEN '5 — Exacto'
+                        WHEN r.goles_local=r.goles_visitante AND p.goles_local=p.goles_visitante THEN '1 — Empate correcto'
+                        WHEN (p.goles_local>p.goles_visitante AND r.goles_local>r.goles_visitante)
+                          OR (p.goles_local<p.goles_visitante AND r.goles_local<r.goles_visitante) THEN '3 — Ganador correcto'
+                        ELSE '0 — Falló'
+                    END AS "Puntos",
+                    COALESCE(pt.puntos_totales,0) AS "Puntos Totales"
+             FROM pronosticos p
+             INNER JOIN usuarios u ON p.id_usuario=u.id_usuario
+             LEFT JOIN resultados_reales r ON p.partido_id=r.partido_id
+             LEFT JOIN partidos_desbloqueados pd ON pd.id_usuario=p.id_usuario AND pd.partido_id=p.partido_id
+             LEFT JOIN puntajes pt ON pt.id_usuario=u.id_usuario
+             WHERE u.activo=true
+             ORDER BY u.nombre ASC, p.partido_id ASC`
+        );
+        return res.json({ ok: true, pronosticos: rows });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error al exportar.' });
     }
 });
-// ─── ADMIN: LOGS DE ACTIVIDAD ──────────────────────────────────────────────────
+
+// ─── ADMIN: LOGS ─────────────────────────────────────────────────────────────
 router.get('/admin/logs', async (req, res) => {
     try {
-        const result = await query(`
-            SELECT l.id_log AS "IdLog", l.id_usuario AS "IdUsuario", u.nombre AS "NombreUsuario",
-                   l.accion AS "Accion", l.partido_id AS "PartidoId", l.detalle AS "Detalle",
-                   l.fecha AS "Fecha", l.exito AS "Exito", l.error_message AS "ErrorMessage"
-            FROM logs_actividad l
-            LEFT JOIN usuarios u ON l.id_usuario=u.id_usuario
-            ORDER BY l.fecha DESC LIMIT 100
-        `);
-        return res.json({ ok: true, logs: result.rows });
+        const rows = await query(
+            `SELECT l.id_log AS "IdLog", l.id_usuario AS "IdUsuario", u.nombre AS "NombreUsuario",
+                    l.accion AS "Accion", l.partido_id AS "PartidoId", l.detalle AS "Detalle",
+                    l.fecha AS "Fecha", l.exito AS "Exito", l.error_message AS "ErrorMessage"
+             FROM logs_actividad l
+             LEFT JOIN usuarios u ON l.id_usuario=u.id_usuario
+             ORDER BY l.fecha DESC LIMIT 100`
+        );
+        return res.json({ ok: true, logs: rows });
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ ok: false, message: 'Error al obtener logs.' });
+        return res.status(500).json({ ok: false, message: 'Error.' });
     }
 });
 
+// ─── ADMIN: SINCRONIZAR MANUAL ───────────────────────────────────────────────
 router.post('/admin/sincronizar', async (req, res) => {
     try {
         const { sincronizarResultados } = require('./sync-resultados');
         await sincronizarResultados();
-        return res.json({ ok: true, message: '✅ Sincronización manual completada con éxito.' });
+        return res.json({ ok: true, message: '✅ Sincronización completada.' });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ ok: false, message: 'Error al sincronizar.' });
     }
 });
 
-// ─── STANDINGS (Football-Data.org) ───────────────────────────────────────────
+// ─── STANDINGS (API-Sports) ──────────────────────────────────────────────────
 router.get('/standings', async (req, res) => {
     try {
-        const API_KEY = process.env.FOOTBALL_DATA_API_KEY || process.env.APISPORTS_KEY;
+        const API_KEY   = process.env.APISPORTS_KEY;
+        const LEAGUE_ID = 1, SEASON = 2026;
         if (!API_KEY) return res.status(500).json({ ok: false, message: 'API Key no configurada.' });
 
         const response = await fetch(
-            `https://api.football-data.org/v4/competitions/WC/standings`,
-            { headers: { 'X-Auth-Token': API_KEY } }
+            `https://v3.football.api-sports.io/standings?league=${LEAGUE_ID}&season=${SEASON}`,
+            { headers: { 'x-apisports-key': API_KEY } }
         );
         const data = await response.json();
-        if (data.errors || data.message || !data.standings) {
-            console.error('API Error standings:', data.message || data.errors);
-            return res.json({ ok: true, grupos: {} });
-        }
+        if (!data.response || data.response.length === 0) return res.json({ ok: true, grupos: {} });
 
         const grupos = {};
-        data.standings.forEach(standing => {
-            const letra = standing.group.replace('GROUP_', '').replace('Group ', '').trim();
-            if (!grupos[letra]) grupos[letra] = [];
-            
-            standing.table.forEach(equipo => {
+        const league = data.response[0]?.league;
+        if (!league) return res.json({ ok: true, grupos: {} });
+
+        league.standings.forEach(standing => {
+            standing.forEach(equipo => {
+                const letra = equipo.group.replace('Group ', '').trim();
+                if (!grupos[letra]) grupos[letra] = [];
                 grupos[letra].push({
-                    posicion: equipo.position,
-                    nombre: equipo.team.name,
-                    logo: equipo.team.crest,
-                    jugados: equipo.playedGames,
-                    ganados: equipo.won,
-                    empates: equipo.draw,
-                    perdidos: equipo.lost,
-                    golesFavor: equipo.goalsFor,
-                    golesContra: equipo.goalsAgainst,
-                    diferencia: equipo.goalDifference,
-                    puntos: equipo.points
+                    posicion: equipo.rank, nombre: equipo.team.name, logo: equipo.team.logo,
+                    jugados: equipo.all.played, ganados: equipo.all.win, empates: equipo.all.draw,
+                    perdidos: equipo.all.lose, golesFavor: equipo.all.goals.for,
+                    golesContra: equipo.all.goals.against, diferencia: equipo.goalsDiff, puntos: equipo.points
                 });
             });
         });
@@ -1197,7 +1067,7 @@ router.get('/mis-puntos-grupo/:idUsuario', validarTokenUsuario, async (req, res)
     try {
         const idUsuario = parseInt(req.params.idUsuario);
         const result = await query(
-            `SELECT p.partido_id AS "PartidoId", p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
+            `SELECT p.partido_id, p.goles_local AS "ProLocal", p.goles_visitante AS "ProVisitante",
                     r.goles_local AS "RealLocal", r.goles_visitante AS "RealVisitante"
              FROM pronosticos p
              INNER JOIN resultados_reales r ON p.partido_id=r.partido_id
@@ -1206,8 +1076,8 @@ router.get('/mis-puntos-grupo/:idUsuario', validarTokenUsuario, async (req, res)
         );
 
         const puntosPorGrupo = {};
-        result.rows.forEach(row => {
-            const partido = partidos.find(p => p.id === row.PartidoId);
+        result.forEach(row => {
+            const partido = partidos.find(p => p.id === row.partido_id);
             if (!partido || !partido.grupo) return;
             const grupo = partido.grupo;
             if (!puntosPorGrupo[grupo]) puntosPorGrupo[grupo] = 0;
@@ -1223,21 +1093,154 @@ router.get('/mis-puntos-grupo/:idUsuario', validarTokenUsuario, async (req, res)
     }
 });
 
+// ─── PRONÓSTICOS PÚBLICOS POR PARTIDO ────────────────────────────────────────
+router.get('/pronosticos-partido/:partidoId', validarTokenUsuario, async (req, res) => {
+    try {
+        const partidoId = parseInt(req.params.partidoId);
+
+        const revelado = await query(
+            `SELECT revelado FROM partidos_revelados WHERE partido_id=$1`,
+            [partidoId]
+        );
+        const estaRevelado = revelado[0]?.revelado === true;
+
+        const tokenAdmin    = req.headers['x-admin-token'] || req.query.adminToken;
+        const secret        = process.env.ADMIN_SECRET || 'default-admin-secret-2026-torreslab';
+        const expectedAdmin = crypto.createHmac('sha256', secret).update('1').digest('hex');
+        const esAdmin       = tokenAdmin === expectedAdmin;
+
+        if (!estaRevelado && !esAdmin) {
+            return res.json({ ok: true, revelado: false, pronosticos: [] });
+        }
+
+        const rows = await query(
+            `SELECT u.nombre AS "Nombre", p.goles_local AS "GolesLocal", p.goles_visitante AS "GolesVisitante",
+                    p.fecha_registro AS "FechaRegistro", p.hash_integridad AS "HashIntegridad",
+                    CASE WHEN p.modificado_por IS NOT NULL THEN 1 ELSE 0 END AS "Sospechoso",
+                    p.modificado_por AS "ModificadoPor"
+             FROM pronosticos p
+             INNER JOIN usuarios u ON u.id_usuario=p.id_usuario
+             WHERE p.partido_id=$1
+             ORDER BY u.nombre ASC`,
+            [partidoId]
+        );
+
+        return res.json({ ok: true, revelado: true, pronosticos: rows });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error al obtener pronósticos.' });
+    }
+});
+
+// ─── ADMIN: REVELAR PRONÓSTICOS DE UN PARTIDO ────────────────────────────────
+router.post('/admin/revelar-partido', validarTokenAdmin, async (req, res) => {
+    try {
+        const { partidoId } = req.body;
+        if (!partidoId) return res.status(400).json({ ok: false, message: 'Falta partidoId.' });
+
+        await query(
+            `INSERT INTO partidos_revelados (partido_id, revelado, fecha_revelado, revelado_por)
+             VALUES ($1, true, NOW(), 'admin')
+             ON CONFLICT (partido_id)
+             DO UPDATE SET revelado=true, fecha_revelado=NOW(), revelado_por='admin'`,
+            [partidoId]
+        );
+
+        await registrarLogActividad({ accion:'revelar_partido', partidoId, detalle:`Partido ${partidoId} revelado`, exito:true });
+        return res.json({ ok: true, message: `✅ Pronósticos del partido ${partidoId} revelados.` });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error al revelar.' });
+    }
+});
+
+// ─── HEARTBEAT ────────────────────────────────────────────────────────────────
+router.post('/heartbeat', async (req, res) => {
+    try {
+        const { idUsuario } = req.body;
+        if (idUsuario) {
+            await query(
+                `UPDATE usuarios SET ultima_conexion=NOW() WHERE id_usuario=$1`,
+                [parseInt(idUsuario)]
+            );
+        }
+        const activeUsers = await query(
+            `SELECT id_usuario AS "idUsuario", nombre AS "nombre", foto_url AS "fotoUrl"
+             FROM usuarios
+             WHERE ultima_conexion >= NOW() - INTERVAL '2 minutes' AND activo=TRUE
+             ORDER BY nombre ASC`
+        );
+        return res.json({ ok: true, activeUsers: activeUsers.rows });
+    } catch (error) {
+        console.error('Error heartbeat:', error);
+        return res.status(500).json({ ok: false, message: 'Error.' });
+    }
+});
+
+// ─── STANDINGS REALES ─────────────────────────────────────────────────────────
+router.get('/standings-reales', async (req, res) => {
+    try {
+        const result = await query(`SELECT partido_id AS "PartidoId", goles_local AS "GolesLocal", goles_visitante AS "GolesVisitante" FROM resultados_reales`);
+        const resultados = result.rows;
+
+        const grupos = {};
+        partidos.forEach(p => {
+            if (!p.grupo) return;
+            if (!grupos[p.grupo]) grupos[p.grupo] = {};
+            [{ nombre:p.local, cod:p.codLocal }, { nombre:p.visitante, cod:p.codVisitante }].forEach(({ nombre, cod }) => {
+                if (!grupos[p.grupo][nombre])
+                    grupos[p.grupo][nombre] = { nombre, cod, j:0, g:0, e:0, l:0, gf:0, gc:0, pts:0 };
+            });
+        });
+
+        partidos.forEach(p => {
+            if (!p.grupo) return;
+            const res = resultados.find(r => r.PartidoId === p.id);
+            if (!res) return;
+            const eqL = grupos[p.grupo][p.local], eqV = grupos[p.grupo][p.visitante];
+            if (!eqL || !eqV) return;
+            const gl = res.GolesLocal, gv = res.GolesVisitante;
+            eqL.j++; eqV.j++; eqL.gf+=gl; eqL.gc+=gv; eqV.gf+=gv; eqV.gc+=gl;
+            if (gl>gv) { eqL.g++; eqL.pts+=3; eqV.l++; }
+            else if (gl<gv) { eqV.g++; eqV.pts+=3; eqL.l++; }
+            else { eqL.e++; eqL.pts++; eqV.e++; eqV.pts++; }
+        });
+
+        const tablas = {};
+        Object.keys(grupos).sort().forEach(g => {
+            tablas[g] = Object.values(grupos[g]).sort((a,b) => {
+                if (b.pts!==a.pts) return b.pts-a.pts;
+                const dA=a.gf-a.gc, dB=b.gf-b.gc;
+                if (dB!==dA) return dB-dA;
+                if (b.gf!==a.gf) return b.gf-a.gf;
+                return a.nombre.localeCompare(b.nombre);
+            });
+        });
+
+        return res.json({ ok: true, tablas });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ ok: false, message: 'Error al calcular standings.' });
+    }
+});
+
+// ─── DEBUG: LOGS DE CORREO ───────────────────────────────────────────────────
 router.get('/debug-email-logs', async (req, res) => {
     try {
-        const result = await query(`
-            SELECT l.id_log AS "IdLog", u.nombre AS "Nombre", u.correo AS "Correo",
-                   l.accion AS "Accion", l.detalle AS "Detalle",
-                   l.fecha AS "Fecha", l.exito AS "Exito", l.error_message AS "ErrorMessage"
-            FROM logs_actividad l
-            LEFT JOIN usuarios u ON l.id_usuario=u.id_usuario
-            WHERE l.accion = 'enviar_correo_resultado'
-            ORDER BY l.fecha DESC LIMIT 50
-        `);
+        const result = await query(
+            `SELECT l.id_log AS "IdLog", u.nombre AS "Nombre", u.correo AS "Correo",
+                    l.accion AS "Accion", l.detalle AS "Detalle",
+                    l.fecha AS "Fecha", l.exito AS "Exito", l.error_message AS "ErrorMessage"
+             FROM logs_actividad l
+             LEFT JOIN usuarios u ON l.id_usuario=u.id_usuario
+             WHERE l.accion='enviar_correo_resultado'
+             ORDER BY l.fecha DESC LIMIT 50`
+        );
         return res.json({ ok: true, logs: result.rows });
     } catch (e) {
         return res.status(500).json({ ok: false, error: e.message });
     }
 });
+
 
 module.exports = router;
