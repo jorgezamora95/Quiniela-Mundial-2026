@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="./css/sidebar.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+    <title>Resultados FIFA | Quiniela Mundial 2026</title>
+    <style>
+        /* ── Tabs principales ── */
+        .res-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .res-tab {
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,.15);
+            background: rgba(255,255,255,.06);
+            color: #b8c2d6;
+            cursor: pointer;
+            font-size: .88rem;
+            transition: all .2s;
+        }
+        .res-tab:hover { background: rgba(255,255,255,.1); color: #fff; }
+        .res-tab.activo { background: #16883f; border-color: #16883f; color: #fff; font-weight: 600; }
+
+        /* ── Filtro grupos ── */
+        .grupos-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 1.2rem;
+        }
+        .grupo-tab {
+            padding: 5px 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,.12);
+            background: rgba(255,255,255,.05);
+            color: #b8c2d6;
+            cursor: pointer;
+            font-size: .8rem;
+            transition: all .2s;
+        }
+        .grupo-tab.activo { background: #0b5229; border-color: #16883f; color: #2ecc71; }
+
+        /* ── Tabla de grupo ── */
+        .grupo-block {
+            background: rgba(255,255,255,.03);
+            border: 1px solid rgba(255,255,255,.07);
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+        .grupo-titulo {
+            padding: .8rem 1.2rem;
+            background: rgba(255,255,255,.05);
+            border-bottom: 1px solid rgba(255,255,255,.07);
+            font-weight: 700;
+            color: #fff;
+            font-size: .95rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+        .tabla-standings {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .85rem;
+        }
+        .tabla-standings th {
+            padding: .6rem .8rem;
+            text-align: center;
+            color: #7a8aa0;
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            border-bottom: 1px solid rgba(255,255,255,.06);
+            font-weight: 600;
+        }
+        .tabla-standings th:first-child { text-align: left; padding-left: 1.2rem; }
+        .tabla-standings td {
+            padding: .65rem .8rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,.04);
+            color: #cdd6e0;
+        }
+        .tabla-standings td:first-child { text-align: left; padding-left: 1.2rem; }
+        .tabla-standings tr:last-child td { border-bottom: none; }
+        .tabla-standings tr.clasifica-directo td:first-child {
+            border-left: 3px solid #16883f;
+        }
+        .tabla-standings tr.clasifica-mejor3 td:first-child {
+            border-left: 3px solid #f1c40f;
+        }
+        .tabla-standings tr.eliminado td:first-child {
+            border-left: 3px solid #7A7A7A;
+        }
+        .equipo-cell {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            font-weight: 600;
+            color: #fff;
+        }
+        .pos-num {
+            width: 20px;
+            text-align: center;
+            color: #7a8aa0;
+            font-size: .78rem;
+            flex-shrink: 0;
+        }
+        .pts-cell { font-weight: 700; color: #fff; }
+        .dif-pos { color: #2ecc71; }
+        .dif-neg { color: #e74c3c; }
+
+        /* ── Partidos jugados por grupo ── */
+        .partidos-grupo {
+            margin-top: 1.5rem;
+        }
+        .partido-result-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: .7rem 1.2rem;
+            border-bottom: 1px solid rgba(255,255,255,.04);
+            font-size: .85rem;
+            gap: 1rem;
+        }
+        .partido-result-row:last-child { border-bottom: none; }
+        .pr-equipos {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            flex: 1;
+            min-width: 0;
+        }
+        .pr-local { text-align: right; flex: 1; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pr-visitante { text-align: left; flex: 1; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pr-marcador {
+            background: rgba(255,255,255,.08);
+            border-radius: 8px;
+            padding: .25rem .7rem;
+            font-weight: 700;
+            font-size: .9rem;
+            color: #fff;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .pr-pendiente {
+            color: #7a8aa0;
+            font-size: .78rem;
+            font-style: italic;
+        }
+        .pr-fecha { color: #7a8aa0; font-size: .75rem; white-space: nowrap; }
+
+        /* ── BRACKET ── */
+        .bracket-container {
+            overflow-x: auto;
+            padding-bottom: 1rem;
+        }
+        .bracket-wrapper {
+            display: flex;
+            gap: 0;
+            min-width: 900px;
+            align-items: stretch;
+        }
+        .bracket-col {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 140px;
+        }
+        .bracket-col-title {
+            text-align: center;
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #7a8aa0;
+            padding: .5rem;
+            margin-bottom: .5rem;
+            font-weight: 600;
+        }
+        .bracket-slots {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            justify-content: space-around;
+            gap: 4px;
+            padding: 0 4px;
+        }
+        .bracket-match {
+            background: rgba(255,255,255,.04);
+            border: 1px solid rgba(255,255,255,.08);
+            border-radius: 8px;
+            overflow: hidden;
+            min-height: 52px;
+        }
+        .bracket-match.tiene-resultado {
+            border-color: rgba(22,136,63,.3);
+        }
+        .bracket-team {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: .3rem .6rem;
+            font-size: .75rem;
+            border-bottom: 1px solid rgba(255,255,255,.05);
+            gap: .3rem;
+        }
+        .bracket-team:last-child { border-bottom: none; }
+        .bracket-team.ganador {
+            background: rgba(22,136,63,.12);
+            color: #2ecc71;
+            font-weight: 700;
+        }
+        .bracket-team.perdedor { opacity: .5; }
+        .bracket-team-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: "Twemoji Mozilla","Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+        }
+        .bracket-goles {
+            font-weight: 700;
+            min-width: 14px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .bracket-match-info {
+            text-align: center;
+            font-size: .65rem;
+            color: #7a8aa0;
+            padding: .1rem .4rem;
+            background: rgba(255,255,255,.02);
+            border-bottom: 1px solid rgba(255,255,255,.04);
+        }
+        .bracket-pendiente {
+            color: #7a8aa0;
+            font-size: .72rem;
+            text-align: center;
+            padding: .4rem;
+            font-style: italic;
+        }
+
+        /* Final especial */
+        .bracket-match.final {
+            border-color: rgba(241,196,15,.4);
+            background: rgba(241,196,15,.04);
+        }
+        .bracket-match.tercer-lugar {
+            border-color: rgba(210,105,30,.3);
+            background: rgba(210,105,30,.03);
+        }
+
+        /* ── Leyenda ── */
+        .leyenda {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+            font-size: .78rem;
+            color: #b8c2d6;
+        }
+        .leyenda-item { display: flex; align-items: center; gap: .4rem; }
+        .leyenda-bar {
+            width: 3px; height: 16px; border-radius: 2px; flex-shrink: 0;
+        }
+
+        /* ── Loading ── */
+        .res-loading {
+            text-align: center;
+            color: #7a8aa0;
+            padding: 3rem;
+            font-size: .9rem;
+        }
+
+        @media (max-width: 768px) {
+            .tabla-standings th:nth-child(n+7),
+            .tabla-standings td:nth-child(n+7) { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div id="sidebar-container"></div>
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h2>🏆 Resultados Oficiales FIFA</h2>
+                <p>Posiciones reales y bracket del torneo.</p>
+            </div>
+            <button onclick="recargarDatos()" style="background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); color:#b8c2d6; padding:.5rem 1rem; border-radius:8px; cursor:pointer; font-size:.85rem;">
+                <i class="fa-solid fa-rotate-right"></i> Actualizar
+            </button>
+        </div>
+
+        <!-- Tabs principales -->
+        <div class="res-tabs">
+            <button class="res-tab activo" onclick="cambiarVista('grupos')">⚽ Fase de Grupos</button>
+            <button class="res-tab" onclick="cambiarVista('bracket')">🏆 Bracket Eliminatorios</button>
+        </div>
+
+        <!-- ══ VISTA GRUPOS ══ -->
+        <div id="vistaGrupos">
+            <div class="grupos-tabs" id="gruposTabs"></div>
+            <div id="contenidoGrupo">
+                <div class="res-loading"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</div>
+            </div>
+        </div>
+
+        <!-- ══ VISTA BRACKET ══ -->
+        <div id="vistaBracket" style="display:none;">
+            <div style="background:rgba(241,196,15,.08); border:1px solid rgba(241,196,15,.2); border-radius:12px; padding:1rem 1.5rem; margin-bottom:1.5rem; display:flex; align-items:center; gap:.8rem;">
+                <p id="avisoEliminatorias" style="margin:0; color:#b8c2d6; font-size:.9rem;">
+                <strong style="color:#f1c40f;">Rondas Finales</strong>
+                </p>
+            </div>
+            <div id="contenidoBracket">
+                <div class="res-loading"><i class="fa-solid fa-spinner fa-spin"></i> Cargando bracket...</div>
+            </div>
+        </div>
+
+    </main>
+    <script src="./js/config.js"></script>
+    <script src="./js/sesion.js"></script>
+    <script src="./js/layout.js"></script>
+    <script src="./js/resultados.js"></script>
+</body>
+</html>
